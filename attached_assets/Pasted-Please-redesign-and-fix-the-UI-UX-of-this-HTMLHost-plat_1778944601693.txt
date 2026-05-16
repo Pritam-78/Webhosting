@@ -1,0 +1,24 @@
+Please redesign and fix the UI/UX of this HTMLHost platform to make it look exceptionally modern, professional, smooth, and fully optimized for mobile devices. 
+
+Here are the key improvements needed based on the current layout:
+
+1. **Fix Layout Overflow & Alignment (Crucial):**
+   - In the HTML Editor section, the header buttons ("Template" and "Clear") are overflowing or sticking too close to the borders. Wrap the section header in a responsive flex container (`display: flex; justify-content: space-between; align-items: center; wrap: wrap;`).
+   - Ensure adequate padding inside all boxes so no element or button ever clips or touches the borders.
+
+2. **Modernize Buttons & Components:**
+   - Make all buttons have clean, uniform padding (e.g., `padding: 8px 16px;`).
+   - Use smooth, modern rounded corners (`border-radius: 8px` or `12px`) instead of sharp or uneven edges.
+   - Add elegant hover and active micro-interactions (e.g., `transition: all 0.3s ease;` with a slight scale-up or subtle brightness shift).
+
+3. **Premium Dark Theme Aesthetics:**
+   - Use a sleek, unified color palette: Deep midnight blue/dark gray backgrounds with soft glowing accents (like vibrant indigo or electric purple for active tabs/primary buttons).
+   - Implement a subtle border/stroke for card elements (e.g., `border: 1px solid rgba(255, 255, 255, 0.08);`) or a slight glassmorphism effect (`backdrop-filter`) to make components pop beautifully against the dark background.
+
+4. **Typography & Code Editor:**
+   - Clean up the hierarchy. Ensure form labels like "Website Name" and "HTML Editor" have crisp, slightly muted text colors (like a soft gray/blue) so the inputs stand out.
+   - For the code editor textarea, use a high-quality monospaced font (like 'Fira Code', 'JetBrains Mono', or standard 'Monaco') with proper line-height and inner padding so code looks neat and highly readable.
+
+5. **Smooth & Responsive Layout:**
+   - Use seamless transitions for all interactive elements (buttons, inputs, dropdowns) to make the entire web app feel incredibly premium, smooth, and lag-free.
+   - Ensure full mobile responsiveness so everything looks perfectly centered and proportioned on smaller screens.

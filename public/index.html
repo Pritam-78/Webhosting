@@ -4,9 +4,11 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>HTMLhost — Instant HTML Hosting</title>
-  <link rel="stylesheet" href="/styles.css" />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
+  <link rel="stylesheet" href="/styles.css" />
 </head>
 <body>
   <!-- NAVBAR -->
@@ -180,14 +182,16 @@
 
         <!-- Paste Mode -->
         <div id="editorMode">
-          <div class="editor-toolbar">
-            <span class="editor-label"><i class="fa-solid fa-code"></i> HTML Editor</span>
-            <div class="editor-actions">
-              <button class="icon-btn" title="Insert template" onclick="insertTemplate()"><i class="fa-solid fa-wand-magic-sparkles"></i> Template</button>
-              <button class="icon-btn" title="Clear editor" onclick="clearEditor()"><i class="fa-solid fa-trash"></i> Clear</button>
+          <div class="editor-wrap">
+            <div class="editor-toolbar">
+              <span class="editor-label"><i class="fa-solid fa-code"></i> HTML Editor</span>
+              <div class="editor-actions">
+                <button class="icon-btn" onclick="insertTemplate()"><i class="fa-solid fa-wand-magic-sparkles"></i> Template</button>
+                <button class="icon-btn danger" onclick="clearEditor()"><i class="fa-solid fa-trash"></i> Clear</button>
+              </div>
             </div>
+            <textarea id="htmlEditor" class="code-editor" placeholder="<!DOCTYPE html>&#10;<html>&#10;  <head>&#10;    <title>My Site</title>&#10;  </head>&#10;  <body>&#10;    <h1>Hello World!</h1>&#10;  </body>&#10;</html>" oninput="updatePreview()"></textarea>
           </div>
-          <textarea id="htmlEditor" class="code-editor" placeholder="<!DOCTYPE html>&#10;<html>&#10;  <head>&#10;    <title>My Site</title>&#10;  </head>&#10;  <body>&#10;    <h1>Hello World!</h1>&#10;  </body>&#10;</html>" oninput="updatePreview()"></textarea>
         </div>
 
         <!-- Upload Mode -->
