@@ -136,6 +136,19 @@
 
   <!-- DASHBOARD (shown when logged in) -->
   <main class="dashboard hidden" id="dashboard">
+
+    <!-- Announcement Banner -->
+    <div class="announcement-banner hidden" id="announcementBanner" role="alert">
+      <div class="ann-banner-icon"><i id="annIcon" class="fa-solid fa-circle-info"></i></div>
+      <div class="ann-banner-body">
+        <strong id="annBannerTitle"></strong>
+        <span id="annBannerMsg"></span>
+      </div>
+      <button class="ann-banner-close" onclick="dismissAnnouncement()" aria-label="Dismiss">
+        <i class="fa-solid fa-xmark"></i>
+      </button>
+    </div>
+
     <!-- Welcome Banner -->
     <div class="welcome-banner" id="welcomeBanner">
       <div class="welcome-text">

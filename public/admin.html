@@ -4,243 +4,641 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Admin Panel — HTMLhost</title>
-  <link rel="stylesheet" href="/styles.css" />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
+  <link rel="stylesheet" href="/styles.css" />
+  <style>
+    /* ── Admin-only overrides ── */
+    .ap-tabs { display:flex; gap:0; border-bottom:1px solid var(--border2); margin-bottom:28px; flex-wrap:wrap; }
+    .ap-tab  { display:inline-flex; align-items:center; gap:7px; padding:11px 20px;
+               background:none; border:none; color:var(--text3); font-family:'Inter',sans-serif;
+               font-size:0.875rem; font-weight:600; cursor:pointer;
+               border-bottom:2px solid transparent; margin-bottom:-1px;
+               transition:all var(--t) var(--ease); border-radius:var(--radius-sm) var(--radius-sm) 0 0; }
+    .ap-tab:hover  { color:var(--text2); background:var(--bg3); }
+    .ap-tab.active { color:var(--primary-soft); border-bottom-color:var(--primary); }
+    .ap-tab .tab-dot { width:7px; height:7px; border-radius:50%; background:currentColor; opacity:0.5; }
+    .ap-tab.active .tab-dot { opacity:1; background:var(--primary); box-shadow:0 0 6px var(--primary-glow); }
+    .ap-panel { display:none; }
+    .ap-panel.active { display:block; animation:fadeInUp 0.3s var(--ease) both; }
+
+    /* announcement type badge */
+    .ann-type { display:inline-block; padding:2px 9px; border-radius:12px; font-size:0.72rem; font-weight:700; }
+    .ann-type.info    { background:rgba(96,165,250,0.12); color:#60a5fa; border:1px solid rgba(96,165,250,0.25); }
+    .ann-type.success { background:rgba(34,197,94,0.12);  color:#4ade80; border:1px solid rgba(34,197,94,0.25); }
+    .ann-type.warning { background:rgba(245,158,11,0.12); color:#fbbf24; border:1px solid rgba(245,158,11,0.25); }
+    .ann-type.danger  { background:rgba(240,68,68,0.12);  color:#f87171; border:1px solid rgba(240,68,68,0.25); }
+
+    .ann-active-badge { display:inline-flex; align-items:center; gap:5px; padding:3px 10px;
+      border-radius:20px; font-size:0.7rem; font-weight:700; white-space:nowrap;
+      background:var(--success-tint); color:var(--success); border:1px solid rgba(34,197,94,0.22); }
+    .ann-active-badge::before { content:''; width:5px; height:5px; border-radius:50%;
+      background:var(--success); box-shadow:0 0 5px rgba(34,197,94,0.6); }
+    .ann-inactive-badge { display:inline-flex; align-items:center; gap:5px; padding:3px 10px;
+      border-radius:20px; font-size:0.7rem; font-weight:600;
+      background:var(--bg4); color:var(--text3); border:1px solid var(--border); }
+
+    /* announcement list */
+    .ann-list { display:flex; flex-direction:column; gap:10px; }
+    .ann-card { background:var(--bg3); border:1px solid var(--border2); border-radius:var(--radius);
+      padding:16px 18px; display:flex; align-items:flex-start; gap:14px; flex-wrap:wrap; }
+    .ann-card-body { flex:1; min-width:0; }
+    .ann-card-title { font-weight:700; font-size:0.95rem; margin-bottom:5px; display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+    .ann-card-content { font-size:0.85rem; color:var(--text2); line-height:1.55; margin-bottom:8px; word-break:break-word; }
+    .ann-card-meta { font-size:0.73rem; color:var(--text3); display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+    .ann-card-actions { display:flex; gap:6px; align-items:flex-start; flex-shrink:0; }
+
+    /* form panel */
+    .form-panel { background:var(--bg3); border:1px solid var(--border2); border-radius:var(--radius-lg); padding:22px 22px 18px; margin-bottom:22px; }
+    .form-panel-title { font-size:0.95rem; font-weight:700; margin-bottom:18px; display:flex; align-items:center; gap:8px; }
+    .form-panel-title i { color:var(--primary-soft); }
+    .form-row { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+    .form-row.single { grid-template-columns:1fr; }
+    .form-actions { display:flex; gap:8px; margin-top:16px; flex-wrap:wrap; }
+
+    select.form-select {
+      width:100%; padding:11px 14px; background:var(--bg4); border:1px solid var(--border2);
+      border-radius:var(--radius); color:var(--text); font-family:'Inter',sans-serif;
+      font-size:0.9rem; cursor:pointer; transition:all var(--t) var(--ease);
+    }
+    select.form-select:focus { outline:none; border-color:var(--primary); box-shadow:0 0 0 3px var(--primary-glow); }
+    select.form-select option { background:var(--bg4); }
+
+    textarea.form-textarea {
+      width:100%; padding:11px 14px; background:var(--bg3); border:1px solid var(--border2);
+      border-radius:var(--radius); color:var(--text); font-family:'Inter',sans-serif;
+      font-size:0.9rem; line-height:1.6; resize:vertical; min-height:90px;
+      transition:all var(--t) var(--ease);
+    }
+    textarea.form-textarea:focus { outline:none; border-color:var(--primary); box-shadow:0 0 0 3px var(--primary-glow); background:var(--bg4); }
+    textarea.form-textarea::placeholder { color:var(--text3); }
+
+    .toggle-wrap { display:flex; align-items:center; gap:10px; margin-top:6px; }
+    .toggle { position:relative; width:40px; height:22px; flex-shrink:0; }
+    .toggle input { opacity:0; width:0; height:0; }
+    .toggle-slider { position:absolute; inset:0; background:var(--bg5); border:1px solid var(--border2);
+      border-radius:20px; cursor:pointer; transition:all var(--t) var(--ease); }
+    .toggle-slider::before { content:''; position:absolute; left:3px; top:3px; width:14px; height:14px;
+      border-radius:50%; background:var(--text3); transition:all var(--t) var(--ease); }
+    .toggle input:checked + .toggle-slider { background:var(--primary); border-color:var(--primary); }
+    .toggle input:checked + .toggle-slider::before { transform:translateX(18px); background:#fff; }
+    .toggle-label { font-size:0.85rem; color:var(--text2); font-weight:500; }
+
+    /* IP Ban table */
+    .ip-tag { font-family:'JetBrains Mono',monospace; font-size:0.82rem;
+      background:var(--bg4); border:1px solid var(--border2);
+      padding:3px 10px; border-radius:6px; color:var(--text2); }
+    .ip-tag.banned { background:rgba(240,68,68,0.10); border-color:rgba(240,68,68,0.25); color:#f87171; }
+
+    /* activity log */
+    .activity-action { display:inline-block; padding:2px 8px; border-radius:10px;
+      font-size:0.72rem; font-weight:600; font-family:'JetBrains Mono',monospace; }
+    .activity-action.login        { background:rgba(34,197,94,0.10); color:#4ade80; }
+    .activity-action.register     { background:rgba(96,165,250,0.10); color:#60a5fa; }
+    .activity-action.login_failed { background:rgba(240,68,68,0.10); color:#f87171; }
+
+    .manual-ban-row { display:flex; gap:8px; margin-bottom:16px; flex-wrap:wrap; }
+    .manual-ban-row input { flex:1; min-width:140px; padding:9px 14px; background:var(--bg3);
+      border:1px solid var(--border2); border-radius:var(--radius); color:var(--text);
+      font-family:'JetBrains Mono',monospace; font-size:0.875rem; transition:all var(--t); }
+    .manual-ban-row input:focus { outline:none; border-color:var(--danger); box-shadow:0 0 0 3px rgba(240,68,68,0.15); }
+
+    .stat-fourth { background:rgba(240,68,68,0.08); border-color:rgba(240,68,68,0.18) !important; }
+    .stat-fourth .stat-icon { background:rgba(240,68,68,0.12); color:#f87171; }
+
+    .empty-state { text-align:center; padding:48px 20px; color:var(--text2); }
+    .empty-state i { font-size:2.4rem; color:var(--text3); display:block; margin-bottom:12px; opacity:0.4; }
+    .empty-state p { font-size:0.875rem; color:var(--text3); }
+
+    @media (max-width:640px) {
+      .form-row { grid-template-columns:1fr; }
+      .ap-tab { padding:9px 13px; font-size:0.82rem; }
+      .ann-card { flex-direction:column; }
+      .ann-card-actions { width:100%; justify-content:flex-end; }
+    }
+  </style>
 </head>
 <body>
-  <!-- Admin Login -->
-  <div class="admin-login-page" id="adminLoginPage">
-    <div class="admin-login-card">
-      <div class="admin-logo">
-        <i class="fa-solid fa-shield-halved"></i>
-      </div>
-      <h2>Admin Access</h2>
-      <p>This area is restricted. Enter the admin password to continue.</p>
-      <form onsubmit="adminLogin(event)">
-        <div class="form-group">
-          <label>Admin Password</label>
-          <div class="input-wrap">
-            <i class="fa-solid fa-key"></i>
-            <input type="password" id="adminPass" placeholder="Enter admin password" required />
-            <button type="button" class="eye-btn" onclick="togglePass('adminPass', this)"><i class="fa-solid fa-eye"></i></button>
-          </div>
-        </div>
-        <div class="form-error hidden" id="adminLoginError"></div>
-        <button type="submit" class="btn btn-primary btn-full">
-          <i class="fa-solid fa-unlock"></i> Unlock Dashboard
-        </button>
-      </form>
-    </div>
-  </div>
 
-  <!-- Admin Dashboard -->
-  <div class="admin-dashboard hidden" id="adminDashboard">
-    <nav class="admin-nav">
-      <div class="nav-brand">
-        <i class="fa-solid fa-shield-halved"></i>
-        <span>Admin Dashboard</span>
+<!-- ═══ Admin Login ════════════════════════════════════════════════════════════ -->
+<div class="admin-login-page" id="adminLoginPage">
+  <div class="admin-login-card">
+    <div class="admin-logo"><i class="fa-solid fa-shield-halved"></i></div>
+    <h2>Admin Access</h2>
+    <p>This area is restricted. Enter the admin password to continue.</p>
+    <form onsubmit="adminLogin(event)">
+      <div class="form-group">
+        <label>Admin Password</label>
+        <div class="input-wrap">
+          <i class="fa-solid fa-key"></i>
+          <input type="password" id="adminPass" placeholder="Enter admin password" required autocomplete="off" />
+          <button type="button" class="eye-btn" onclick="togglePass('adminPass',this)"><i class="fa-solid fa-eye"></i></button>
+        </div>
       </div>
-      <button class="btn btn-ghost btn-sm" onclick="adminLogout()">
-        <i class="fa-solid fa-right-from-bracket"></i> Exit
+      <div class="form-error hidden" id="adminLoginError"></div>
+      <button type="submit" class="btn btn-primary btn-full" id="loginSubmitBtn">
+        <i class="fa-solid fa-unlock"></i> Unlock Dashboard
       </button>
-    </nav>
+    </form>
+  </div>
+</div>
 
-    <div class="admin-content">
-      <!-- Stats Cards -->
-      <div class="admin-stats">
-        <div class="admin-stat-card">
-          <div class="stat-icon blue"><i class="fa-solid fa-users"></i></div>
-          <div class="stat-info">
-            <span class="stat-value" id="totalUsers">—</span>
-            <span class="stat-label">Total Users</span>
-          </div>
-        </div>
-        <div class="admin-stat-card">
-          <div class="stat-icon purple"><i class="fa-solid fa-globe"></i></div>
-          <div class="stat-info">
-            <span class="stat-value" id="totalSites">—</span>
-            <span class="stat-label">Hosted Sites</span>
-          </div>
-        </div>
-        <div class="admin-stat-card">
-          <div class="stat-icon green"><i class="fa-solid fa-chart-line"></i></div>
-          <div class="stat-info">
-            <span class="stat-value" id="avgSites">—</span>
-            <span class="stat-label">Avg Sites/User</span>
-          </div>
-        </div>
+<!-- ═══ Admin Dashboard ════════════════════════════════════════════════════════ -->
+<div class="admin-dashboard hidden" id="adminDashboard">
+  <nav class="admin-nav">
+    <div class="nav-brand">
+      <i class="fa-solid fa-shield-halved" style="color:var(--primary);filter:drop-shadow(0 0 8px var(--primary-glow))"></i>
+      <span>HTMLhost Admin</span>
+    </div>
+    <div style="display:flex;align-items:center;gap:8px">
+      <span style="font-size:0.78rem;color:var(--text3);background:var(--bg4);border:1px solid var(--border);padding:4px 10px;border-radius:20px;">
+        <i class="fa-solid fa-circle" style="color:var(--success);font-size:0.5rem;margin-right:4px"></i>Admin Session
+      </span>
+      <button class="btn btn-ghost btn-sm" onclick="adminLogout()"><i class="fa-solid fa-right-from-bracket"></i> Exit</button>
+    </div>
+  </nav>
+
+  <div class="admin-content">
+
+    <!-- Stat Cards -->
+    <div class="admin-stats" id="adminStats" style="grid-template-columns:repeat(auto-fit,minmax(160px,1fr));margin-bottom:24px;">
+      <div class="admin-stat-card">
+        <div class="stat-icon blue"><i class="fa-solid fa-users"></i></div>
+        <div class="stat-info"><span class="stat-value" id="totalUsers">—</span><span class="stat-label">Total Users</span></div>
       </div>
+      <div class="admin-stat-card">
+        <div class="stat-icon purple"><i class="fa-solid fa-globe"></i></div>
+        <div class="stat-info"><span class="stat-value" id="totalSites">—</span><span class="stat-label">Hosted Sites</span></div>
+      </div>
+      <div class="admin-stat-card">
+        <div class="stat-icon green"><i class="fa-solid fa-chart-line"></i></div>
+        <div class="stat-info"><span class="stat-value" id="avgSites">—</span><span class="stat-label">Avg / User</span></div>
+      </div>
+      <div class="admin-stat-card stat-fourth">
+        <div class="stat-icon"><i class="fa-solid fa-ban"></i></div>
+        <div class="stat-info"><span class="stat-value" id="totalBanned">—</span><span class="stat-label">Banned IPs</span></div>
+      </div>
+    </div>
 
-      <!-- User List -->
+    <!-- Tab Navigation -->
+    <div class="ap-tabs">
+      <button class="ap-tab active" onclick="switchAdminTab('overview',this)">
+        <span class="tab-dot"></span> Overview
+      </button>
+      <button class="ap-tab" onclick="switchAdminTab('announcements',this)">
+        <span class="tab-dot"></span> Announcements
+      </button>
+      <button class="ap-tab" onclick="switchAdminTab('security',this)">
+        <span class="tab-dot"></span> IP Security
+      </button>
+    </div>
+
+    <!-- ── Overview Panel ─────────────────────────────────────────────────── -->
+    <div class="ap-panel active" id="panelOverview">
+
       <div class="admin-section">
         <div class="section-header">
           <h3><i class="fa-solid fa-users"></i> Registered Users</h3>
-          <button class="btn btn-outline btn-sm" onclick="loadAdminData()">
-            <i class="fa-solid fa-rotate-right"></i> Refresh
-          </button>
+          <button class="btn btn-outline btn-sm" onclick="loadAdminData()"><i class="fa-solid fa-rotate-right"></i> Refresh</button>
         </div>
         <div class="admin-search">
           <i class="fa-solid fa-search"></i>
-          <input type="text" id="userSearch" placeholder="Search by email or name..." oninput="filterUsers()" />
+          <input type="text" id="userSearch" placeholder="Search by email, name or IP…" oninput="filterUsers()" />
         </div>
         <div class="users-table-wrap">
-          <table class="users-table" id="usersTable">
+          <table class="users-table">
             <thead>
               <tr>
-                <th>#</th>
-                <th>Email</th>
-                <th>Name</th>
-                <th>Sites</th>
-                <th>Joined</th>
-                <th>Action</th>
+                <th>#</th><th>Email</th><th>Name</th><th>Sites</th>
+                <th>Last IP</th><th>Last Seen</th><th>Actions</th>
               </tr>
             </thead>
             <tbody id="usersTableBody">
-              <tr><td colspan="6" class="loading-row"><i class="fa-solid fa-spinner fa-spin"></i> Loading...</td></tr>
+              <tr><td colspan="7" class="loading-row"><i class="fa-solid fa-spinner fa-spin"></i> Loading…</td></tr>
             </tbody>
           </table>
         </div>
       </div>
 
-      <!-- User Sites Panel -->
+      <!-- User sites panel -->
       <div class="admin-section hidden" id="userSitesPanel">
         <div class="section-header">
-          <h3><i class="fa-solid fa-globe"></i> Sites by <span id="selectedUserEmail">—</span></h3>
+          <h3><i class="fa-solid fa-globe"></i> Sites by <span id="selectedUserEmail" style="color:var(--primary-soft)">—</span></h3>
           <button class="btn btn-ghost btn-sm" onclick="closeUserSites()"><i class="fa-solid fa-xmark"></i> Close</button>
         </div>
-        <div class="admin-sites-grid" id="adminSitesGrid">
+        <div class="admin-sites-grid" id="adminSitesGrid"></div>
+      </div>
+    </div>
+
+    <!-- ── Announcements Panel ─────────────────────────────────────────────── -->
+    <div class="ap-panel" id="panelAnnouncements">
+
+      <!-- Create / Edit form -->
+      <div class="form-panel" id="annFormPanel">
+        <div class="form-panel-title"><i class="fa-solid fa-bullhorn"></i> <span id="annFormTitle">Create Announcement</span></div>
+        <input type="hidden" id="annEditId" value="" />
+        <div class="form-row">
+          <div class="form-group" style="margin-bottom:0">
+            <label>Title</label>
+            <div class="input-wrap">
+              <i class="fa-solid fa-heading"></i>
+              <input type="text" id="annTitle" placeholder="Announcement title…" />
+            </div>
+          </div>
+          <div class="form-group" style="margin-bottom:0">
+            <label>Type</label>
+            <select id="annType" class="form-select">
+              <option value="info">ℹ️  Info</option>
+              <option value="success">✅  Success</option>
+              <option value="warning">⚠️  Warning</option>
+              <option value="danger">🚨  Alert</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-group" style="margin-top:14px;margin-bottom:0">
+          <label>Content</label>
+          <textarea id="annContent" class="form-textarea" placeholder="Write the announcement message here…"></textarea>
+        </div>
+        <div class="toggle-wrap" style="margin-top:14px">
+          <label class="toggle">
+            <input type="checkbox" id="annActive" />
+            <span class="toggle-slider"></span>
+          </label>
+          <span class="toggle-label">Set as active announcement (replaces current active)</span>
+        </div>
+        <div class="form-error hidden" id="annFormError"></div>
+        <div class="form-actions">
+          <button class="btn btn-primary" onclick="saveAnnouncement()"><i class="fa-solid fa-floppy-disk"></i> <span id="annSaveLabel">Create Announcement</span></button>
+          <button class="btn btn-ghost" onclick="resetAnnForm()" id="annCancelBtn" style="display:none"><i class="fa-solid fa-xmark"></i> Cancel</button>
+        </div>
+      </div>
+
+      <!-- Announcement List -->
+      <div class="admin-section">
+        <div class="section-header">
+          <h3><i class="fa-solid fa-list"></i> All Announcements</h3>
+          <button class="btn btn-outline btn-sm" onclick="loadAnnouncements()"><i class="fa-solid fa-rotate-right"></i> Refresh</button>
+        </div>
+        <div id="annList"><div class="loading-sites"><i class="fa-solid fa-spinner fa-spin"></i> Loading…</div></div>
+      </div>
+    </div>
+
+    <!-- ── Security Panel ─────────────────────────────────────────────────── -->
+    <div class="ap-panel" id="panelSecurity">
+
+      <!-- Manual IP ban -->
+      <div class="form-panel">
+        <div class="form-panel-title"><i class="fa-solid fa-shield-halved"></i> Block IP Address</div>
+        <div class="manual-ban-row">
+          <input type="text" id="banIpInput" placeholder="e.g. 192.168.1.1" />
+          <input type="text" id="banReasonInput" placeholder="Reason (optional)" style="font-family:'Inter',sans-serif;" />
+          <button class="btn btn-danger" onclick="banIPManual()"><i class="fa-solid fa-ban"></i> Block IP</button>
+        </div>
+        <div class="form-error hidden" id="banFormError"></div>
+      </div>
+
+      <!-- Banned IPs -->
+      <div class="admin-section" style="margin-bottom:20px">
+        <div class="section-header">
+          <h3><i class="fa-solid fa-ban"></i> Blocked IPs</h3>
+          <button class="btn btn-outline btn-sm" onclick="loadBannedIPs()"><i class="fa-solid fa-rotate-right"></i> Refresh</button>
+        </div>
+        <div class="users-table-wrap">
+          <table class="users-table">
+            <thead><tr><th>#</th><th>IP Address</th><th>Reason</th><th>Blocked At</th><th>Action</th></tr></thead>
+            <tbody id="bannedIPsBody">
+              <tr><td colspan="5" class="loading-row"><i class="fa-solid fa-spinner fa-spin"></i> Loading…</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Recent Activity -->
+      <div class="admin-section">
+        <div class="section-header">
+          <h3><i class="fa-solid fa-clock-rotate-left"></i> Recent Activity Log</h3>
+          <button class="btn btn-outline btn-sm" onclick="loadActivity()"><i class="fa-solid fa-rotate-right"></i> Refresh</button>
+        </div>
+        <div class="users-table-wrap">
+          <table class="users-table">
+            <thead><tr><th>Email</th><th>Action</th><th>IP Address</th><th>Time</th><th>Block</th></tr></thead>
+            <tbody id="activityBody">
+              <tr><td colspan="5" class="loading-row"><i class="fa-solid fa-spinner fa-spin"></i> Loading…</td></tr>
+            </tbody>
+          </table>
         </div>
       </div>
     </div>
-  </div>
 
-  <script>
-    let adminToken = null;
-    let allUsersData = [];
+  </div><!-- /admin-content -->
+</div><!-- /admin-dashboard -->
 
-    function togglePass(id, btn) {
-      const input = document.getElementById(id);
-      const isPass = input.type === 'password';
-      input.type = isPass ? 'text' : 'password';
-      btn.innerHTML = isPass ? '<i class="fa-solid fa-eye-slash"></i>' : '<i class="fa-solid fa-eye"></i>';
-    }
+<script>
+/* ── State ── */
+let adminToken   = null;
+let allUsersData = [];
 
-    async function adminLogin(e) {
-      e.preventDefault();
-      const pass = document.getElementById('adminPass').value;
-      const errEl = document.getElementById('adminLoginError');
-      errEl.classList.add('hidden');
+/* ── Helpers ── */
+function togglePass(id, btn) {
+  const el = document.getElementById(id);
+  const isP = el.type === 'password';
+  el.type = isP ? 'text' : 'password';
+  btn.innerHTML = isP ? '<i class="fa-solid fa-eye-slash"></i>' : '<i class="fa-solid fa-eye"></i>';
+}
 
-      try {
-        const res = await fetch('/api/admin/verify', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ password: pass })
-        });
-        const data = await res.json();
-        if (data.success) {
-          adminToken = data.token;
-          document.getElementById('adminLoginPage').classList.add('hidden');
-          document.getElementById('adminDashboard').classList.remove('hidden');
-          loadAdminData();
-        } else {
-          errEl.textContent = 'Access Denied. Incorrect password.';
-          errEl.classList.remove('hidden');
-          document.getElementById('adminPass').value = '';
-        }
-      } catch {
-        errEl.textContent = 'Server error. Please try again.';
-        errEl.classList.remove('hidden');
-      }
-    }
+function showErr(id, msg) {
+  const el = document.getElementById(id);
+  el.textContent = msg; el.classList.remove('hidden');
+}
+function hideErr(id) { document.getElementById(id).classList.add('hidden'); }
 
-    async function loadAdminData() {
-      try {
-        const res = await fetch('/api/admin/stats', {
-          headers: { Authorization: `Bearer ${adminToken}` }
-        });
-        const data = await res.json();
-        document.getElementById('totalUsers').textContent = data.totalUsers;
-        document.getElementById('totalSites').textContent = data.totalSites;
-        const avg = data.totalUsers > 0 ? (data.totalSites / data.totalUsers).toFixed(1) : '0';
-        document.getElementById('avgSites').textContent = avg;
-        allUsersData = data.users;
-        renderUsersTable(data.users);
-      } catch {
-        console.error('Failed to load admin data');
-      }
-    }
+function formatDate(d) {
+  if (!d) return '—';
+  return new Date(d).toLocaleString('en-US', { month:'short', day:'numeric', hour:'2-digit', minute:'2-digit' });
+}
 
-    function renderUsersTable(users) {
-      const tbody = document.getElementById('usersTableBody');
-      if (users.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="6" class="empty-row">No users found</td></tr>';
-        return;
-      }
-      tbody.innerHTML = users.map((u, i) => `
-        <tr>
-          <td class="row-num">${i + 1}</td>
-          <td><span class="user-email-link" onclick="loadUserSites(${u.id}, '${u.email}')">${u.email}</span></td>
-          <td>${u.name || '<span class="no-name">Not set</span>'}</td>
-          <td><span class="site-badge">${u.site_count}</span></td>
-          <td class="date-cell">${new Date(u.created_at).toLocaleDateString()}</td>
-          <td><button class="btn btn-outline btn-xs" onclick="loadUserSites(${u.id}, '${u.email}')"><i class="fa-solid fa-eye"></i> View Sites</button></td>
-        </tr>
-      `).join('');
-    }
+function escH(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 
-    function filterUsers() {
-      const query = document.getElementById('userSearch').value.toLowerCase();
-      const filtered = allUsersData.filter(u =>
-        u.email.toLowerCase().includes(query) || (u.name || '').toLowerCase().includes(query)
-      );
-      renderUsersTable(filtered);
-    }
-
-    async function loadUserSites(userId, email) {
-      document.getElementById('selectedUserEmail').textContent = email;
-      const panel = document.getElementById('userSitesPanel');
-      panel.classList.remove('hidden');
-      document.getElementById('adminSitesGrid').innerHTML = '<div class="loading-sites"><i class="fa-solid fa-spinner fa-spin"></i> Loading...</div>';
-      panel.scrollIntoView({ behavior: 'smooth' });
-
-      try {
-        const res = await fetch(`/api/admin/user/${userId}/sites`, {
-          headers: { Authorization: `Bearer ${adminToken}` }
-        });
-        const data = await res.json();
-        const grid = document.getElementById('adminSitesGrid');
-        if (data.sites.length === 0) {
-          grid.innerHTML = '<div class="empty-sites"><i class="fa-solid fa-globe"></i><p>No sites hosted yet</p></div>';
-          return;
-        }
-        const host = window.location.origin;
-        grid.innerHTML = `
-          <p class="sites-total">Total: <strong>${data.sites.length} site${data.sites.length !== 1 ? 's' : ''}</strong></p>
-          ${data.sites.map(s => `
-            <div class="admin-site-card">
-              <div class="site-card-name"><i class="fa-solid fa-file-code"></i> ${s.name}</div>
-              <a href="${host}/site/${s.slug}" target="_blank" class="site-link">${host}/site/${s.slug}</a>
-              <span class="site-date"><i class="fa-solid fa-calendar"></i> ${new Date(s.published_at).toLocaleDateString()}</span>
-            </div>
-          `).join('')}
-        `;
-      } catch {
-        document.getElementById('adminSitesGrid').innerHTML = '<p class="form-error">Failed to load sites.</p>';
-      }
-    }
-
-    function closeUserSites() {
-      document.getElementById('userSitesPanel').classList.add('hidden');
-    }
-
-    function adminLogout() {
-      adminToken = null;
-      document.getElementById('adminDashboard').classList.add('hidden');
-      document.getElementById('adminLoginPage').classList.remove('hidden');
+/* ── Login ── */
+async function adminLogin(e) {
+  e.preventDefault();
+  const btn = document.getElementById('loginSubmitBtn');
+  btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Verifying…';
+  hideErr('adminLoginError');
+  try {
+    const res  = await fetch('/api/admin/verify', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ password: document.getElementById('adminPass').value }) });
+    const data = await res.json();
+    if (data.success) {
+      adminToken = data.token;
+      document.getElementById('adminLoginPage').classList.add('hidden');
+      document.getElementById('adminDashboard').classList.remove('hidden');
+      loadAdminData();
+      loadAnnouncements();
+      loadBannedIPs();
+      loadActivity();
+    } else {
+      showErr('adminLoginError', '⛔ Access Denied. Incorrect password.');
       document.getElementById('adminPass').value = '';
     }
-  </script>
+  } catch { showErr('adminLoginError', 'Network error. Please try again.'); }
+  finally { btn.disabled=false; btn.innerHTML='<i class="fa-solid fa-unlock"></i> Unlock Dashboard'; }
+}
+
+function adminLogout() {
+  adminToken = null;
+  document.getElementById('adminDashboard').classList.add('hidden');
+  document.getElementById('adminLoginPage').classList.remove('hidden');
+  document.getElementById('adminPass').value = '';
+}
+
+/* ── Tabs ── */
+function switchAdminTab(name, btn) {
+  document.querySelectorAll('.ap-tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.ap-panel').forEach(p => p.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('panel' + name.charAt(0).toUpperCase() + name.slice(1)).classList.add('active');
+}
+
+/* ── Overview ── */
+async function loadAdminData() {
+  try {
+    const res  = await fetch('/api/admin/stats', { headers:{ Authorization:`Bearer ${adminToken}` } });
+    const data = await res.json();
+    document.getElementById('totalUsers').textContent  = data.totalUsers;
+    document.getElementById('totalSites').textContent  = data.totalSites;
+    document.getElementById('totalBanned').textContent = data.totalBanned;
+    const avg = data.totalUsers > 0 ? (data.totalSites / data.totalUsers).toFixed(1) : '0';
+    document.getElementById('avgSites').textContent = avg;
+    allUsersData = data.users;
+    renderUsersTable(data.users);
+  } catch { console.error('Failed to load admin data'); }
+}
+
+function renderUsersTable(users) {
+  const tbody = document.getElementById('usersTableBody');
+  if (!users.length) { tbody.innerHTML='<tr><td colspan="7" class="empty-row">No users found</td></tr>'; return; }
+  tbody.innerHTML = users.map((u, i) => `
+    <tr>
+      <td class="row-num">${i+1}</td>
+      <td><span class="user-email-link" onclick="loadUserSites(${u.id},'${escH(u.email)}')">${escH(u.email)}</span></td>
+      <td>${u.name ? escH(u.name) : '<span class="no-name">Not set</span>'}</td>
+      <td><span class="site-badge">${u.site_count}/5</span></td>
+      <td><span class="ip-tag">${u.last_ip || '—'}</span></td>
+      <td class="date-cell">${formatDate(u.last_seen)}</td>
+      <td style="display:flex;gap:6px;flex-wrap:wrap">
+        <button class="btn btn-outline btn-xs" onclick="loadUserSites(${u.id},'${escH(u.email)}')"><i class="fa-solid fa-eye"></i> Sites</button>
+        ${u.last_ip ? `<button class="btn btn-xs" style="background:var(--danger-tint);color:var(--danger);border:1px solid rgba(240,68,68,0.3)" onclick="quickBanIP('${escH(u.last_ip)}','${escH(u.email)}')"><i class="fa-solid fa-ban"></i> Block IP</button>` : ''}
+      </td>
+    </tr>`).join('');
+}
+
+function filterUsers() {
+  const q = document.getElementById('userSearch').value.toLowerCase();
+  renderUsersTable(allUsersData.filter(u =>
+    u.email.toLowerCase().includes(q) || (u.name||'').toLowerCase().includes(q) || (u.last_ip||'').includes(q)
+  ));
+}
+
+async function loadUserSites(userId, email) {
+  document.getElementById('selectedUserEmail').textContent = email;
+  const panel = document.getElementById('userSitesPanel');
+  panel.classList.remove('hidden');
+  document.getElementById('adminSitesGrid').innerHTML = '<div class="loading-sites"><i class="fa-solid fa-spinner fa-spin"></i> Loading…</div>';
+  panel.scrollIntoView({ behavior:'smooth' });
+  try {
+    const res  = await fetch(`/api/admin/user/${userId}/sites`, { headers:{ Authorization:`Bearer ${adminToken}` } });
+    const data = await res.json();
+    const grid = document.getElementById('adminSitesGrid');
+    if (!data.sites.length) { grid.innerHTML='<div class="empty-sites"><i class="fa-solid fa-globe"></i><p>No sites hosted yet</p></div>'; return; }
+    const host = window.location.origin;
+    grid.innerHTML = `<p class="sites-total">Total: <strong>${data.sites.length} site${data.sites.length!==1?'s':''}</strong> (limit: 5)</p>`
+      + data.sites.map(s => `
+        <div class="admin-site-card">
+          <div class="site-card-name"><i class="fa-solid fa-file-code"></i> ${escH(s.name)}</div>
+          <a href="${host}/site/${s.slug}" target="_blank" class="site-link">${host}/site/${s.slug}</a>
+          <span class="site-date"><i class="fa-solid fa-calendar"></i> ${formatDate(s.published_at)}</span>
+        </div>`).join('');
+  } catch { document.getElementById('adminSitesGrid').innerHTML='<p class="form-error">Failed to load sites.</p>'; }
+}
+function closeUserSites() { document.getElementById('userSitesPanel').classList.add('hidden'); }
+
+/* ── Announcements ── */
+async function loadAnnouncements() {
+  try {
+    const res  = await fetch('/api/admin/announcements', { headers:{ Authorization:`Bearer ${adminToken}` } });
+    const data = await res.json();
+    renderAnnouncements(data.announcements || []);
+  } catch { document.getElementById('annList').innerHTML='<div class="empty-state"><i class="fa-solid fa-triangle-exclamation"></i><p>Failed to load announcements.</p></div>'; }
+}
+
+const TYPE_ICONS = { info:'fa-circle-info', success:'fa-circle-check', warning:'fa-triangle-exclamation', danger:'fa-radiation' };
+
+function renderAnnouncements(list) {
+  const el = document.getElementById('annList');
+  if (!list.length) {
+    el.innerHTML='<div class="empty-state"><i class="fa-solid fa-bullhorn"></i><p>No announcements yet. Create one above.</p></div>';
+    return;
+  }
+  el.innerHTML = `<div class="ann-list">${list.map(a => `
+    <div class="ann-card" id="ann-${a.id}">
+      <div class="ann-card-body">
+        <div class="ann-card-title">
+          <i class="fa-solid ${TYPE_ICONS[a.type]||'fa-circle-info'}"></i>
+          ${escH(a.title)}
+          <span class="ann-type ${a.type}">${a.type}</span>
+          ${a.is_active ? '<span class="ann-active-badge">Active</span>' : '<span class="ann-inactive-badge">Inactive</span>'}
+        </div>
+        <div class="ann-card-content">${escH(a.content)}</div>
+        <div class="ann-card-meta">
+          <span><i class="fa-solid fa-calendar"></i> ${formatDate(a.created_at)}</span>
+          <span><i class="fa-solid fa-pen"></i> ${formatDate(a.updated_at)}</span>
+        </div>
+      </div>
+      <div class="ann-card-actions">
+        <button class="btn btn-outline btn-xs" onclick="editAnnouncement(${a.id},'${escH(a.title)}','${escH(a.content)}','${a.type}',${a.is_active})"><i class="fa-solid fa-pen"></i></button>
+        ${!a.is_active ? `<button class="btn btn-xs" style="background:var(--success-tint);color:var(--success);border:1px solid rgba(34,197,94,0.25)" onclick="toggleAnnActive(${a.id},'${escH(a.title)}','${escH(a.content)}','${a.type}',true)"><i class="fa-solid fa-circle-check"></i> Activate</button>` : `<button class="btn btn-xs" style="background:var(--bg4);color:var(--text2);border:1px solid var(--border)" onclick="toggleAnnActive(${a.id},'${escH(a.title)}','${escH(a.content)}','${a.type}',false)"><i class="fa-solid fa-circle-xmark"></i> Deactivate</button>`}
+        <button class="btn btn-xs" style="background:var(--danger-tint);color:var(--danger);border:1px solid rgba(240,68,68,0.3)" onclick="deleteAnnouncement(${a.id})"><i class="fa-solid fa-trash"></i></button>
+      </div>
+    </div>`).join('')}</div>`;
+}
+
+function editAnnouncement(id, title, content, type, isActive) {
+  document.getElementById('annEditId').value   = id;
+  document.getElementById('annTitle').value    = title;
+  document.getElementById('annContent').value  = content;
+  document.getElementById('annType').value     = type;
+  document.getElementById('annActive').checked = isActive;
+  document.getElementById('annFormTitle').textContent  = 'Edit Announcement';
+  document.getElementById('annSaveLabel').textContent  = 'Save Changes';
+  document.getElementById('annCancelBtn').style.display = '';
+  document.getElementById('annFormPanel').scrollIntoView({ behavior:'smooth' });
+}
+
+function resetAnnForm() {
+  document.getElementById('annEditId').value   = '';
+  document.getElementById('annTitle').value    = '';
+  document.getElementById('annContent').value  = '';
+  document.getElementById('annType').value     = 'info';
+  document.getElementById('annActive').checked = false;
+  document.getElementById('annFormTitle').textContent  = 'Create Announcement';
+  document.getElementById('annSaveLabel').textContent  = 'Create Announcement';
+  document.getElementById('annCancelBtn').style.display = 'none';
+  hideErr('annFormError');
+}
+
+async function saveAnnouncement() {
+  hideErr('annFormError');
+  const id      = document.getElementById('annEditId').value;
+  const title   = document.getElementById('annTitle').value.trim();
+  const content = document.getElementById('annContent').value.trim();
+  const type    = document.getElementById('annType').value;
+  const active  = document.getElementById('annActive').checked;
+  if (!title || !content) { showErr('annFormError','Title and content are required.'); return; }
+  try {
+    const url    = id ? `/api/admin/announcements/${id}` : '/api/admin/announcements';
+    const method = id ? 'PUT' : 'POST';
+    const res    = await fetch(url, { method, headers:{'Content-Type':'application/json', Authorization:`Bearer ${adminToken}`}, body:JSON.stringify({ title, content, type, is_active:active }) });
+    const data   = await res.json();
+    if (!res.ok) { showErr('annFormError', data.error||'Failed to save.'); return; }
+    resetAnnForm();
+    loadAnnouncements();
+    loadAdminData();
+  } catch { showErr('annFormError','Network error. Please try again.'); }
+}
+
+async function toggleAnnActive(id, title, content, type, active) {
+  try {
+    await fetch(`/api/admin/announcements/${id}`, { method:'PUT', headers:{'Content-Type':'application/json', Authorization:`Bearer ${adminToken}`}, body:JSON.stringify({ title, content, type, is_active:active }) });
+    loadAnnouncements();
+  } catch { alert('Failed to update announcement.'); }
+}
+
+async function deleteAnnouncement(id) {
+  if (!confirm('Delete this announcement? This cannot be undone.')) return;
+  try {
+    await fetch(`/api/admin/announcements/${id}`, { method:'DELETE', headers:{ Authorization:`Bearer ${adminToken}` } });
+    loadAnnouncements();
+  } catch { alert('Failed to delete.'); }
+}
+
+/* ── IP Security ── */
+async function loadBannedIPs() {
+  try {
+    const res  = await fetch('/api/admin/banned-ips', { headers:{ Authorization:`Bearer ${adminToken}` } });
+    const data = await res.json();
+    renderBannedIPs(data.bannedIPs || []);
+  } catch { document.getElementById('bannedIPsBody').innerHTML='<tr><td colspan="5" class="empty-row">Failed to load.</td></tr>'; }
+}
+
+function renderBannedIPs(list) {
+  const tbody = document.getElementById('bannedIPsBody');
+  if (!list.length) { tbody.innerHTML='<tr><td colspan="5" class="empty-row"><i class="fa-solid fa-shield-check" style="color:var(--success);margin-right:6px"></i>No IPs blocked</td></tr>'; return; }
+  tbody.innerHTML = list.map((ip, i) => `
+    <tr>
+      <td class="row-num">${i+1}</td>
+      <td><span class="ip-tag banned">${escH(ip.ip_address)}</span></td>
+      <td style="color:var(--text2);font-size:0.85rem">${escH(ip.reason)}</td>
+      <td class="date-cell">${formatDate(ip.banned_at)}</td>
+      <td><button class="btn btn-xs" style="background:var(--success-tint);color:var(--success);border:1px solid rgba(34,197,94,0.25)" onclick="unbanIP(${ip.id},'${escH(ip.ip_address)}')"><i class="fa-solid fa-unlock"></i> Unblock</button></td>
+    </tr>`).join('');
+}
+
+async function banIPManual() {
+  hideErr('banFormError');
+  const ip     = document.getElementById('banIpInput').value.trim();
+  const reason = document.getElementById('banReasonInput').value.trim() || 'Blocked by admin';
+  if (!ip) { showErr('banFormError','Please enter an IP address.'); return; }
+  await doBanIP(ip, reason);
+  document.getElementById('banIpInput').value    = '';
+  document.getElementById('banReasonInput').value = '';
+}
+
+async function quickBanIP(ip, email) {
+  if (!confirm(`Block IP ${ip} (used by ${email})?`)) return;
+  await doBanIP(ip, `Blocked via admin panel — user: ${email}`);
+  // switch to security tab
+  document.querySelectorAll('.ap-tab')[2].click();
+}
+
+async function doBanIP(ip, reason) {
+  try {
+    const res  = await fetch('/api/admin/banned-ips', { method:'POST', headers:{'Content-Type':'application/json', Authorization:`Bearer ${adminToken}`}, body:JSON.stringify({ ip_address:ip, reason }) });
+    const data = await res.json();
+    if (!res.ok) { showErr('banFormError', data.error||'Failed to ban IP.'); return; }
+    loadBannedIPs(); loadAdminData();
+  } catch { showErr('banFormError','Network error.'); }
+}
+
+async function unbanIP(id, ip) {
+  if (!confirm(`Unblock IP ${ip}?`)) return;
+  try {
+    await fetch(`/api/admin/banned-ips/${id}`, { method:'DELETE', headers:{ Authorization:`Bearer ${adminToken}` } });
+    loadBannedIPs(); loadAdminData();
+  } catch { alert('Failed to unban.'); }
+}
+
+async function loadActivity() {
+  try {
+    const res  = await fetch('/api/admin/activity', { headers:{ Authorization:`Bearer ${adminToken}` } });
+    const data = await res.json();
+    renderActivity(data.activity || []);
+  } catch { document.getElementById('activityBody').innerHTML='<tr><td colspan="5" class="empty-row">Failed to load.</td></tr>'; }
+}
+
+function renderActivity(list) {
+  const tbody = document.getElementById('activityBody');
+  if (!list.length) { tbody.innerHTML='<tr><td colspan="5" class="empty-row">No activity yet.</td></tr>'; return; }
+  tbody.innerHTML = list.map(a => `
+    <tr>
+      <td style="font-size:0.85rem;color:var(--text2)">${escH(a.email||'—')}</td>
+      <td><span class="activity-action ${a.action}">${a.action}</span></td>
+      <td><span class="ip-tag">${escH(a.ip_address||'—')}</span></td>
+      <td class="date-cell">${formatDate(a.created_at)}</td>
+      <td>${a.ip_address ? `<button class="btn btn-xs" style="background:var(--danger-tint);color:var(--danger);border:1px solid rgba(240,68,68,0.3)" onclick="quickBanIP('${escH(a.ip_address)}','${escH(a.email||'')}')"><i class="fa-solid fa-ban"></i></button>` : '—'}</td>
+    </tr>`).join('');
+}
+</script>
 </body>
 </html>
