@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Admin Panel — HTMLhost</title>
+  <link rel="stylesheet" href="/styles.css" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
+</head>
+<body>
+  <!-- Admin Login -->
+  <div class="admin-login-page" id="adminLoginPage">
+    <div class="admin-login-card">
+      <div class="admin-logo">
+        <i class="fa-solid fa-shield-halved"></i>
+      </div>
+      <h2>Admin Access</h2>
+      <p>This area is restricted. Enter the admin password to continue.</p>
+      <form onsubmit="adminLogin(event)">
+        <div class="form-group">
+          <label>Admin Password</label>
+          <div class="input-wrap">
+            <i class="fa-solid fa-key"></i>
+            <input type="password" id="adminPass" placeholder="Enter admin password" required />
+            <button type="button" class="eye-btn" onclick="togglePass('adminPass', this)"><i class="fa-solid fa-eye"></i></button>
+          </div>
+        </div>
+        <div class="form-error hidden" id="adminLoginError"></div>
+        <button type="submit" class="btn btn-primary btn-full">
+          <i class="fa-solid fa-unlock"></i> Unlock Dashboard
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Admin Dashboard -->
+  <div class="admin-dashboard hidden" id="adminDashboard">
+    <nav class="admin-nav">
+      <div class="nav-brand">
+        <i class="fa-solid fa-shield-halved"></i>
+        <span>Admin Dashboard</span>
+      </div>
+      <button class="btn btn-ghost btn-sm" onclick="adminLogout()">
+        <i class="fa-solid fa-right-from-bracket"></i> Exit
+      </button>
+    </nav>
+
+    <div class="admin-content">
+      <!-- Stats Cards -->
+      <div class="admin-stats">
+        <div class="admin-stat-card">
+          <div class="stat-icon blue"><i class="fa-solid fa-users"></i></div>
+          <div class="stat-info">
+            <span class="stat-value" id="totalUsers">—</span>
+            <span class="stat-label">Total Users</span>
+          </div>
+        </div>
+        <div class="admin-stat-card">
+          <div class="stat-icon purple"><i class="fa-solid fa-globe"></i></div>
+          <div class="stat-info">
+            <span class="stat-value" id="totalSites">—</span>
+            <span class="stat-label">Hosted Sites</span>
+          </div>
+        </div>
+        <div class="admin-stat-card">
+          <div class="stat-icon green"><i class="fa-solid fa-chart-line"></i></div>
+          <div class="stat-info">
+            <span class="stat-value" id="avgSites">—</span>
+            <span class="stat-label">Avg Sites/User</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- User List -->
+      <div class="admin-section">
+        <div class="section-header">
+          <h3><i class="fa-solid fa-users"></i> Registered Users</h3>
+          <button class="btn btn-outline btn-sm" onclick="loadAdminData()">
+            <i class="fa-solid fa-rotate-right"></i> Refresh
+          </button>
+        </div>
+        <div class="admin-search">
+          <i class="fa-solid fa-search"></i>
+          <input type="text" id="userSearch" placeholder="Search by email or name..." oninput="filterUsers()" />
+        </div>
+        <div class="users-table-wrap">
+          <table class="users-table" id="usersTable">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Email</th>
+                <th>Name</th>
+                <th>Sites</th>
+                <th>Joined</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody id="usersTableBody">
+              <tr><td colspan="6" class="loading-row"><i class="fa-solid fa-spinner fa-spin"></i> Loading...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- User Sites Panel -->
+      <div class="admin-section hidden" id="userSitesPanel">
+        <div class="section-header">
+          <h3><i class="fa-solid fa-globe"></i> Sites by <span id="selectedUserEmail">—</span></h3>
+          <button class="btn btn-ghost btn-sm" onclick="closeUserSites()"><i class="fa-solid fa-xmark"></i> Close</button>
+        </div>
+        <div class="admin-sites-grid" id="adminSitesGrid">
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let adminToken = null;
+    let allUsersData = [];
+
+    function togglePass(id, btn) {
+      const input = document.getElementById(id);
+      const isPass = input.type === 'password';
+      input.type = isPass ? 'text' : 'password';
+      btn.innerHTML = isPass ? '<i class="fa-solid fa-eye-slash"></i>' : '<i class="fa-solid fa-eye"></i>';
+    }
+
+    async function adminLogin(e) {
+      e.preventDefault();
+      const pass = document.getElementById('adminPass').value;
+      const errEl = document.getElementById('adminLoginError');
+      errEl.classList.add('hidden');
+
+      try {
+        const res = await fetch('/api/admin/verify', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ password: pass })
+        });
+        const data = await res.json();
+        if (data.success) {
+          adminToken = data.token;
+          document.getElementById('adminLoginPage').classList.add('hidden');
+          document.getElementById('adminDashboard').classList.remove('hidden');
+          loadAdminData();
+        } else {
+          errEl.textContent = 'Access Denied. Incorrect password.';
+          errEl.classList.remove('hidden');
+          document.getElementById('adminPass').value = '';
+        }
+      } catch {
+        errEl.textContent = 'Server error. Please try again.';
+        errEl.classList.remove('hidden');
+      }
+    }
+
+    async function loadAdminData() {
+      try {
+        const res = await fetch('/api/admin/stats', {
+          headers: { Authorization: `Bearer ${adminToken}` }
+        });
+        const data = await res.json();
+        document.getElementById('totalUsers').textContent = data.totalUsers;
+        document.getElementById('totalSites').textContent = data.totalSites;
+        const avg = data.totalUsers > 0 ? (data.totalSites / data.totalUsers).toFixed(1) : '0';
+        document.getElementById('avgSites').textContent = avg;
+        allUsersData = data.users;
+        renderUsersTable(data.users);
+      } catch {
+        console.error('Failed to load admin data');
+      }
+    }
+
+    function renderUsersTable(users) {
+      const tbody = document.getElementById('usersTableBody');
+      if (users.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="6" class="empty-row">No users found</td></tr>';
+        return;
+      }
+      tbody.innerHTML = users.map((u, i) => `
+        <tr>
+          <td class="row-num">${i + 1}</td>
+          <td><span class="user-email-link" onclick="loadUserSites(${u.id}, '${u.email}')">${u.email}</span></td>
+          <td>${u.name || '<span class="no-name">Not set</span>'}</td>
+          <td><span class="site-badge">${u.site_count}</span></td>
+          <td class="date-cell">${new Date(u.created_at).toLocaleDateString()}</td>
+          <td><button class="btn btn-outline btn-xs" onclick="loadUserSites(${u.id}, '${u.email}')"><i class="fa-solid fa-eye"></i> View Sites</button></td>
+        </tr>
+      `).join('');
+    }
+
+    function filterUsers() {
+      const query = document.getElementById('userSearch').value.toLowerCase();
+      const filtered = allUsersData.filter(u =>
+        u.email.toLowerCase().includes(query) || (u.name || '').toLowerCase().includes(query)
+      );
+      renderUsersTable(filtered);
+    }
+
+    async function loadUserSites(userId, email) {
+      document.getElementById('selectedUserEmail').textContent = email;
+      const panel = document.getElementById('userSitesPanel');
+      panel.classList.remove('hidden');
+      document.getElementById('adminSitesGrid').innerHTML = '<div class="loading-sites"><i class="fa-solid fa-spinner fa-spin"></i> Loading...</div>';
+      panel.scrollIntoView({ behavior: 'smooth' });
+
+      try {
+        const res = await fetch(`/api/admin/user/${userId}/sites`, {
+          headers: { Authorization: `Bearer ${adminToken}` }
+        });
+        const data = await res.json();
+        const grid = document.getElementById('adminSitesGrid');
+        if (data.sites.length === 0) {
+          grid.innerHTML = '<div class="empty-sites"><i class="fa-solid fa-globe"></i><p>No sites hosted yet</p></div>';
+          return;
+        }
+        const host = window.location.origin;
+        grid.innerHTML = `
+          <p class="sites-total">Total: <strong>${data.sites.length} site${data.sites.length !== 1 ? 's' : ''}</strong></p>
+          ${data.sites.map(s => `
+            <div class="admin-site-card">
+              <div class="site-card-name"><i class="fa-solid fa-file-code"></i> ${s.name}</div>
+              <a href="${host}/site/${s.slug}" target="_blank" class="site-link">${host}/site/${s.slug}</a>
+              <span class="site-date"><i class="fa-solid fa-calendar"></i> ${new Date(s.published_at).toLocaleDateString()}</span>
+            </div>
+          `).join('')}
+        `;
+      } catch {
+        document.getElementById('adminSitesGrid').innerHTML = '<p class="form-error">Failed to load sites.</p>';
+      }
+    }
+
+    function closeUserSites() {
+      document.getElementById('userSitesPanel').classList.add('hidden');
+    }
+
+    function adminLogout() {
+      adminToken = null;
+      document.getElementById('adminDashboard').classList.add('hidden');
+      document.getElementById('adminLoginPage').classList.remove('hidden');
+      document.getElementById('adminPass').value = '';
+    }
+  </script>
+</body>
+</html>

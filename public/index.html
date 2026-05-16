@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>HTMLhost — Instant HTML Hosting</title>
+  <link rel="stylesheet" href="/styles.css" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
+</head>
+<body>
+  <!-- NAVBAR -->
+  <nav class="navbar" id="navbar">
+    <div class="nav-brand">
+      <i class="fa-solid fa-code"></i>
+      <span>HTMLhost</span>
+    </div>
+    <div class="nav-actions" id="navActions">
+      <button class="btn btn-ghost" onclick="showAuth('login')">Login</button>
+      <button class="btn btn-primary" onclick="showAuth('register')">Get Started</button>
+    </div>
+    <div class="nav-user hidden" id="navUser">
+      <span class="nav-email" id="navEmail"></span>
+      <button class="btn btn-ghost btn-sm" onclick="logout()"><i class="fa-solid fa-right-from-bracket"></i> Logout</button>
+    </div>
+  </nav>
+
+  <!-- HERO SECTION (shown when logged out) -->
+  <section class="hero" id="heroSection">
+    <div class="hero-bg"></div>
+    <div class="hero-content">
+      <div class="badge">Free HTML Hosting</div>
+      <h1>Host Your HTML<br /><span class="gradient-text">Instantly</span></h1>
+      <p>Upload or paste your HTML code and get a live link in seconds. No setup, no servers, no hassle.</p>
+      <div class="hero-actions">
+        <button class="btn btn-primary btn-lg" onclick="showAuth('register')">
+          <i class="fa-solid fa-rocket"></i> Start Hosting Free
+        </button>
+        <button class="btn btn-outline btn-lg" onclick="showAuth('login')">
+          <i class="fa-solid fa-right-to-bracket"></i> Sign In
+        </button>
+      </div>
+      <div class="hero-stats">
+        <div class="stat"><span class="stat-num">Instant</span><span class="stat-label">Deployment</span></div>
+        <div class="stat"><span class="stat-num">Unique</span><span class="stat-label">Public Links</span></div>
+        <div class="stat"><span class="stat-num">Secure</span><span class="stat-label">Private Dashboard</span></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- AUTH MODAL -->
+  <div class="modal-overlay hidden" id="authModal">
+    <div class="modal auth-modal">
+      <button class="modal-close" onclick="closeAuth()"><i class="fa-solid fa-xmark"></i></button>
+      <div class="modal-header">
+        <div class="modal-logo"><i class="fa-solid fa-code"></i></div>
+        <h2 id="authTitle">Welcome back</h2>
+        <p id="authSubtitle">Sign in to your account</p>
+      </div>
+
+      <!-- Login Form -->
+      <form id="loginForm" onsubmit="handleLogin(event)">
+        <div class="form-group">
+          <label>Email address</label>
+          <div class="input-wrap">
+            <i class="fa-solid fa-envelope"></i>
+            <input type="email" id="loginEmail" placeholder="you@example.com" required />
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Password</label>
+          <div class="input-wrap">
+            <i class="fa-solid fa-lock"></i>
+            <input type="password" id="loginPassword" placeholder="Your password" required />
+            <button type="button" class="eye-btn" onclick="togglePass('loginPassword', this)"><i class="fa-solid fa-eye"></i></button>
+          </div>
+        </div>
+        <div class="form-error hidden" id="loginError"></div>
+        <button type="submit" class="btn btn-primary btn-full" id="loginBtn">
+          <span>Sign In</span><i class="fa-solid fa-arrow-right"></i>
+        </button>
+        <p class="auth-switch">Don't have an account? <a href="#" onclick="showAuth('register')">Create one</a></p>
+      </form>
+
+      <!-- Register Form -->
+      <form id="registerForm" class="hidden" onsubmit="handleRegister(event)">
+        <div class="form-group">
+          <label>Email address</label>
+          <div class="input-wrap">
+            <i class="fa-solid fa-envelope"></i>
+            <input type="email" id="regEmail" placeholder="you@example.com" required />
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Password</label>
+          <div class="input-wrap">
+            <i class="fa-solid fa-lock"></i>
+            <input type="password" id="regPassword" placeholder="Min. 6 characters" required minlength="6" />
+            <button type="button" class="eye-btn" onclick="togglePass('regPassword', this)"><i class="fa-solid fa-eye"></i></button>
+          </div>
+        </div>
+        <div class="form-error hidden" id="registerError"></div>
+        <button type="submit" class="btn btn-primary btn-full" id="registerBtn">
+          <span>Create Account</span><i class="fa-solid fa-arrow-right"></i>
+        </button>
+        <p class="auth-switch">Already have an account? <a href="#" onclick="showAuth('login')">Sign in</a></p>
+      </form>
+    </div>
+  </div>
+
+  <!-- NAME SETUP MODAL -->
+  <div class="modal-overlay hidden" id="nameModal">
+    <div class="modal name-modal">
+      <div class="modal-header">
+        <div class="modal-logo pulse"><i class="fa-solid fa-user-pen"></i></div>
+        <h2>One last thing!</h2>
+        <p>What should we call you?</p>
+      </div>
+      <form onsubmit="handleNameSubmit(event)">
+        <div class="form-group">
+          <label>Your name</label>
+          <div class="input-wrap">
+            <i class="fa-solid fa-user"></i>
+            <input type="text" id="nameInput" placeholder="e.g. Pritam Kumar" required />
+          </div>
+        </div>
+        <div class="form-error hidden" id="nameError"></div>
+        <button type="submit" class="btn btn-primary btn-full">
+          <span>Continue</span><i class="fa-solid fa-arrow-right"></i>
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- DASHBOARD (shown when logged in) -->
+  <main class="dashboard hidden" id="dashboard">
+    <!-- Welcome Banner -->
+    <div class="welcome-banner" id="welcomeBanner">
+      <div class="welcome-text">
+        <h2>Welcome back, <span id="welcomeName">User</span>! 👋</h2>
+        <p>Ready to host something new? Paste or upload your HTML below.</p>
+      </div>
+      <button class="btn btn-primary" onclick="openPublisher()">
+        <i class="fa-solid fa-plus"></i> New Site
+      </button>
+    </div>
+
+    <!-- Tab Navigation -->
+    <div class="tab-nav">
+      <button class="tab-btn active" onclick="switchTab('publish', this)">
+        <i class="fa-solid fa-upload"></i> Publish New
+      </button>
+      <button class="tab-btn" onclick="switchTab('sites', this)">
+        <i class="fa-solid fa-globe"></i> My Sites <span class="badge-count" id="siteCount">0</span>
+      </button>
+    </div>
+
+    <!-- Publish Tab -->
+    <div class="tab-content" id="tabPublish">
+      <div class="publisher-card">
+        <div class="publisher-header">
+          <h3><i class="fa-solid fa-code"></i> Create New Site</h3>
+          <div class="mode-toggle">
+            <button class="mode-btn active" id="modeEditor" onclick="setMode('editor')">
+              <i class="fa-solid fa-pen"></i> Paste Code
+            </button>
+            <button class="mode-btn" id="modeUpload" onclick="setMode('upload')">
+              <i class="fa-solid fa-upload"></i> Upload File
+            </button>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label>Website Name</label>
+          <div class="input-wrap">
+            <i class="fa-solid fa-tag"></i>
+            <input type="text" id="siteName" placeholder="My Awesome Website" />
+          </div>
+        </div>
+
+        <!-- Paste Mode -->
+        <div id="editorMode">
+          <div class="editor-toolbar">
+            <span class="editor-label"><i class="fa-solid fa-code"></i> HTML Editor</span>
+            <div class="editor-actions">
+              <button class="icon-btn" title="Insert template" onclick="insertTemplate()"><i class="fa-solid fa-wand-magic-sparkles"></i> Template</button>
+              <button class="icon-btn" title="Clear editor" onclick="clearEditor()"><i class="fa-solid fa-trash"></i> Clear</button>
+            </div>
+          </div>
+          <textarea id="htmlEditor" class="code-editor" placeholder="<!DOCTYPE html>&#10;<html>&#10;  <head>&#10;    <title>My Site</title>&#10;  </head>&#10;  <body>&#10;    <h1>Hello World!</h1>&#10;  </body>&#10;</html>" oninput="updatePreview()"></textarea>
+        </div>
+
+        <!-- Upload Mode -->
+        <div id="uploadMode" class="hidden">
+          <div class="upload-zone" id="uploadZone" ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)" ondrop="handleDrop(event)" onclick="document.getElementById('fileInput').click()">
+            <div class="upload-icon"><i class="fa-solid fa-cloud-arrow-up"></i></div>
+            <p class="upload-title">Drop your HTML file here</p>
+            <p class="upload-sub">or click to browse</p>
+            <span class="upload-hint">.html files only — max 5MB</span>
+            <input type="file" id="fileInput" accept=".html,.htm" class="hidden" onchange="handleFileSelect(event)" />
+          </div>
+          <div class="file-preview hidden" id="filePreview">
+            <div class="file-info">
+              <i class="fa-solid fa-file-code"></i>
+              <div>
+                <span class="file-name" id="fileName"></span>
+                <span class="file-size" id="fileSize"></span>
+              </div>
+              <button class="icon-btn danger" onclick="clearFile()"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Live Preview -->
+        <div class="preview-section" id="previewSection">
+          <div class="preview-header">
+            <span><i class="fa-solid fa-eye"></i> Live Preview</span>
+            <div class="preview-actions">
+              <button class="icon-btn" onclick="refreshPreview()"><i class="fa-solid fa-rotate-right"></i></button>
+            </div>
+          </div>
+          <div class="preview-frame-wrap">
+            <iframe id="previewFrame" class="preview-frame" sandbox="allow-scripts"></iframe>
+          </div>
+        </div>
+
+        <div class="publish-actions">
+          <div class="publish-error hidden" id="publishError"></div>
+          <button class="btn btn-publish" id="publishBtn" onclick="publishSite()">
+            <i class="fa-solid fa-rocket"></i>
+            <span>Publish Site</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Sites Tab -->
+    <div class="tab-content hidden" id="tabSites">
+      <div class="sites-header">
+        <h3><i class="fa-solid fa-globe"></i> My Hosted Sites</h3>
+        <button class="btn btn-primary btn-sm" onclick="switchTab('publish', document.querySelector('.tab-btn'))">
+          <i class="fa-solid fa-plus"></i> New Site
+        </button>
+      </div>
+      <div class="sites-grid" id="sitesGrid">
+        <div class="loading-sites">
+          <i class="fa-solid fa-spinner fa-spin"></i> Loading your sites...
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- SUCCESS MODAL -->
+  <div class="modal-overlay hidden" id="successModal">
+    <div class="modal success-modal">
+      <div class="success-icon"><i class="fa-solid fa-circle-check"></i></div>
+      <h2>Site Published!</h2>
+      <p>Your website is now live and accessible at:</p>
+      <div class="link-box">
+        <a href="#" id="publishedLink" target="_blank" class="published-link"></a>
+        <button class="copy-btn" id="copyBtn" onclick="copyLink()">
+          <i class="fa-solid fa-copy"></i> Copy
+        </button>
+      </div>
+      <div class="success-actions">
+        <a href="#" id="visitBtn" target="_blank" class="btn btn-primary">
+          <i class="fa-solid fa-arrow-up-right-from-square"></i> Visit Site
+        </a>
+        <button class="btn btn-outline" onclick="closeSuccess()">Done</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- DELETE CONFIRM MODAL -->
+  <div class="modal-overlay hidden" id="deleteModal">
+    <div class="modal delete-modal">
+      <div class="delete-icon"><i class="fa-solid fa-triangle-exclamation"></i></div>
+      <h2>Delete Site</h2>
+      <p>This action is permanent. Please enter your password to confirm.</p>
+      <div class="form-group">
+        <label>Your password</label>
+        <div class="input-wrap">
+          <i class="fa-solid fa-lock"></i>
+          <input type="password" id="deletePassword" placeholder="Enter your password" />
+          <button type="button" class="eye-btn" onclick="togglePass('deletePassword', this)"><i class="fa-solid fa-eye"></i></button>
+        </div>
+      </div>
+      <div class="form-error hidden" id="deleteError"></div>
+      <div class="delete-actions">
+        <button class="btn btn-danger" onclick="confirmDelete()">
+          <i class="fa-solid fa-trash"></i> Delete Site
+        </button>
+        <button class="btn btn-ghost" onclick="closeDelete()">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="/app.js"></script>
+</body>
+</html>
