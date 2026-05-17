@@ -75,6 +75,8 @@ initDB();
 
 // ─── IP Ban Middleware ─────────────────────────────────────────────────────────
 
+// ─── IP Ban Middleware (RENDER SAFE VERSION) ───────────────────────────────────
+
 async function ipBanMiddleware(req, res, next) {
   // Skip static assets
   if (req.path.startsWith('/styles') || req.path.startsWith('/app.js') ||
@@ -83,10 +85,14 @@ async function ipBanMiddleware(req, res, next) {
   }
   try {
     const ip = getClientIP(req);
-    const result = await pool.query('SELECT reason FROM banned_ips WHERE ip_address = $1', [ip]);
-    if (result.rows.length > 0) {
-      const reason = result.rows[0].reason || 'No reason provided';
-      return res.status(403).send(`<!DOCTYPE html>
+    
+    // Check if pool is ready and valid
+    if (pool) {
+      try {
+        const result = await pool.query('SELECT reason FROM banned_ips WHERE ip_address = $1', [ip]);
+        if (result && result.rows && result.rows.length > 0) {
+          const reason = result.rows[0].reason || 'No reason provided';
+          return res.status(403).send(`<!DOCTYPE html>
 <html lang="en"><head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>403 — Access Denied</title>
@@ -116,21 +122,24 @@ async function ipBanMiddleware(req, res, next) {
     <div class="icon">🚫</div>
     <div class="code">403</div>
     <h1>Access Denied</h1>
-    <p>Your IP address has been blocked from accessing this platform. If you believe this is an error, please contact the administrator.</p>
+    <p>Your IP address has been blocked from accessing this platform.</p>
     <div class="reason"><strong>Block Reason</strong>${reason}</div>
     <div class="meta">IP: ${ip} &nbsp;·&nbsp; HTMLhost Security System</div>
   </div>
 </body></html>`);
+        }
+      } catch (dbErr) {
+        // Render par agar 'banned_ips' table abhi nahi bani hai, to ye use skip kar dega, crash nahi karega
+        console.log('IP database table check skipped (Not ready yet):', dbErr.message);
+      }
     }
     next();
   } catch (err) {
-    console.error('IP ban check error:', err.message);
+    console.error('Global IP ban middleware error:', err.message);
     next();
   }
 }
 
-app.use(ipBanMiddleware);
-app.use(express.static(path.join(__dirname, 'public')));
 
 // ─── Auth Middleware ───────────────────────────────────────────────────────────
 
