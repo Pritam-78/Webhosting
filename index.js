@@ -35,11 +35,12 @@ function generateSlug() {
   return uuidv4().replace(/-/g, '').substring(0, 10);
 }
 
-async function shortenURL(longUrl) {
+async function shortenURL(longUrl, alias) {
   return new Promise((resolve) => {
     const encoded = encodeURIComponent(longUrl);
+    const aliasParam = alias ? `&alias=${encodeURIComponent(alias)}` : '';
     const req = https.get(
-      `https://tinyurl.com/api-create.php?url=${encoded}`,
+      `https://tinyurl.com/api-create.php?url=${encoded}${aliasParam}`,
       { timeout: 5000 },
       (res) => {
         let data = '';
@@ -54,6 +55,23 @@ async function shortenURL(longUrl) {
     req.on('timeout', () => { req.destroy(); resolve(longUrl); });
   });
 }
+
+async function initDB() {
+  try {
+    await pool.query(`ALTER TABLE sites ADD COLUMN IF NOT EXISTS custom_alias VARCHAR(100)`);
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS feedback (
+        id SERIAL PRIMARY KEY,
+        user_email VARCHAR(255),
+        message TEXT NOT NULL,
+        created_at TIMESTAMPTZ DEFAULT NOW()
+      )
+    `);
+  } catch (err) {
+    console.error('DB init error:', err.message);
+  }
+}
+initDB();
 
 // ─── IP Ban Middleware ─────────────────────────────────────────────────────────
 
@@ -226,6 +244,24 @@ app.put('/api/auth/name', authMiddleware, async (req, res) => {
 
 // ─── Sites Routes ─────────────────────────────────────────────────────────────
 
+app.get('/api/sites/check-alias', authMiddleware, async (req, res) => {
+  try {
+    const alias = (req.query.alias || '').trim().toLowerCase();
+    if (!alias) return res.json({ available: false, error: 'Alias required' });
+    if (!/^[a-z0-9_-]{3,50}$/.test(alias)) {
+      return res.json({ available: false, error: 'Use only letters, numbers, hyphens, underscores (3–50 chars)' });
+    }
+    const result = await pool.query(
+      'SELECT id FROM sites WHERE LOWER(custom_alias) = $1',
+      [alias]
+    );
+    res.json({ available: result.rows.length === 0 });
+  } catch (err) {
+    console.error('Check alias error:', err.message);
+    res.json({ available: false, error: 'Server error' });
+  }
+});
+
 async function checkSiteLimit(userId, res) {
   const count = await pool.query('SELECT COUNT(*) FROM sites WHERE user_id=$1', [userId]);
   if (parseInt(count.rows[0].count) >= SITE_LIMIT) {
@@ -240,10 +276,22 @@ async function checkSiteLimit(userId, res) {
 
 app.post('/api/sites', authMiddleware, async (req, res) => {
   try {
-    const { name, html_content } = req.body;
+    const { name, html_content, custom_alias } = req.body;
     if (!name || !html_content) return res.status(400).json({ error: 'Name and HTML content required' });
 
     if (!(await checkSiteLimit(req.user.id, res))) return;
+
+    // Validate alias if provided
+    const alias = custom_alias ? custom_alias.trim().toLowerCase() : null;
+    if (alias) {
+      if (!/^[a-z0-9_-]{3,50}$/.test(alias)) {
+        return res.status(400).json({ error: 'Invalid alias. Use letters, numbers, hyphens, underscores (3–50 chars).' });
+      }
+      const aliasCheck = await pool.query('SELECT id FROM sites WHERE LOWER(custom_alias)=$1', [alias]);
+      if (aliasCheck.rows.length > 0) {
+        return res.status(409).json({ error: 'alias_taken', message: 'That alias is already taken. Please choose another.' });
+      }
+    }
 
     let slug = generateSlug();
     for (let i = 0; i < 5; i++) {
@@ -252,12 +300,12 @@ app.post('/api/sites', authMiddleware, async (req, res) => {
       slug = generateSlug();
     }
     const result = await pool.query(
-      'INSERT INTO sites (user_id, name, slug, html_content) VALUES ($1,$2,$3,$4) RETURNING *',
-      [req.user.id, name.trim(), slug, html_content]
+      'INSERT INTO sites (user_id, name, slug, html_content, custom_alias) VALUES ($1,$2,$3,$4,$5) RETURNING *',
+      [req.user.id, name.trim(), slug, html_content, alias]
     );
     const site    = result.rows[0];
     const longUrl = `${req.protocol}://${req.get('host')}/site/${site.slug}`;
-    const shortUrl = await shortenURL(longUrl);
+    const shortUrl = await shortenURL(longUrl, alias);
     res.json({ site, short_url: shortUrl, long_url: longUrl });
   } catch (err) {
     console.error('Create site error:', err.message);
@@ -320,6 +368,53 @@ app.delete('/api/sites/:id', authMiddleware, async (req, res) => {
     res.json({ success: true });
   } catch (err) {
     console.error('Delete site error:', err.message);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+app.get('/api/sites/:id/html', authMiddleware, async (req, res) => {
+  try {
+    const result = await pool.query(
+      'SELECT id, name, slug, html_content, custom_alias FROM sites WHERE id=$1 AND user_id=$2',
+      [req.params.id, req.user.id]
+    );
+    if (result.rows.length === 0) return res.status(404).json({ error: 'Site not found' });
+    res.json({ site: result.rows[0] });
+  } catch (err) {
+    console.error('Get site HTML error:', err.message);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+app.put('/api/sites/:id', authMiddleware, async (req, res) => {
+  try {
+    const { name, html_content } = req.body;
+    if (!html_content) return res.status(400).json({ error: 'HTML content required' });
+    const result = await pool.query(
+      'UPDATE sites SET html_content=$1, name=COALESCE(NULLIF($2,\'\'), name), published_at=NOW() WHERE id=$3 AND user_id=$4 RETURNING id, name, slug',
+      [html_content, name || '', req.params.id, req.user.id]
+    );
+    if (result.rows.length === 0) return res.status(404).json({ error: 'Site not found' });
+    const site    = result.rows[0];
+    const longUrl = `${req.protocol}://${req.get('host')}/site/${site.slug}`;
+    res.json({ site, long_url: longUrl });
+  } catch (err) {
+    console.error('Update site error:', err.message);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+app.post('/api/feedback', authMiddleware, async (req, res) => {
+  try {
+    const { message } = req.body;
+    if (!message || !message.trim()) return res.status(400).json({ error: 'Feedback message required' });
+    await pool.query(
+      'INSERT INTO feedback (user_email, message) VALUES ($1, $2)',
+      [req.user.email, message.trim()]
+    );
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Feedback error:', err.message);
     res.status(500).json({ error: 'Server error' });
   }
 });

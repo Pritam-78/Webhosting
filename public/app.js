@@ -5,6 +5,9 @@ let sites = [];
 let deleteTargetId = null;
 let uploadedFileContent = null;
 let currentMode = 'editor';
+let editTargetId = null;
+let aliasTimer   = null;
+let aliasTaken   = false;
 
 // ===== INIT =====
 document.addEventListener('DOMContentLoaded', () => {
@@ -395,16 +398,253 @@ function clearFile() {
 
 function formatBytes(b) { return b < 1024 ? b + ' B' : (b / 1024).toFixed(1) + ' KB'; }
 
+// ===== HAMBURGER MENU =====
+function toggleMenu() {
+  const menu = document.getElementById('sideMenu');
+  if (menu.classList.contains('open')) {
+    closeMenu();
+  } else {
+    openMenu();
+  }
+}
+
+function openMenu() {
+  document.getElementById('sideMenu').classList.add('open');
+  document.getElementById('sideMenu').setAttribute('aria-hidden', 'false');
+  document.getElementById('menuOverlay').classList.remove('hidden');
+  document.getElementById('hamburgerBtn').classList.add('active');
+  loadMenuAnnouncements();
+}
+
+function closeMenu() {
+  document.getElementById('sideMenu').classList.remove('open');
+  document.getElementById('sideMenu').setAttribute('aria-hidden', 'true');
+  document.getElementById('menuOverlay').classList.add('hidden');
+  document.getElementById('hamburgerBtn').classList.remove('active');
+}
+
+async function loadMenuAnnouncements() {
+  const container = document.getElementById('menuAnnouncements');
+  try {
+    const res  = await fetch('/api/announcements/active');
+    const data = await res.json();
+    if (!data.announcement) {
+      container.innerHTML = '<div class="menu-ann-empty"><i class="fa-solid fa-circle-info"></i> No announcements right now.</div>';
+      return;
+    }
+    const ann = data.announcement;
+    const icons = { info:'fa-circle-info', success:'fa-circle-check', warning:'fa-triangle-exclamation', danger:'fa-radiation' };
+    const icon  = icons[ann.type] || 'fa-circle-info';
+    // Convert any URLs in the content into clickable buttons
+    const contentWithLinks = linkifyText(escapeHtml(ann.content));
+    container.innerHTML = `
+      <div class="menu-ann-card menu-ann-${ann.type}">
+        <div class="menu-ann-card-title">
+          <i class="fa-solid ${icon}"></i> ${escapeHtml(ann.title)}
+        </div>
+        <div class="menu-ann-card-body">${contentWithLinks}</div>
+      </div>`;
+  } catch {
+    container.innerHTML = '<div class="menu-ann-empty">Could not load announcements.</div>';
+  }
+}
+
+// Detect URLs in plain text and convert them to styled link-buttons
+function linkifyText(text) {
+  const urlPattern = /(https?:\/\/[^\s<>"]+)/g;
+  return text.replace(urlPattern, (url) =>
+    `<a href="${url}" target="_blank" rel="noopener" class="menu-ann-link-btn">
+       <i class="fa-solid fa-arrow-up-right-from-square"></i> ${url}
+     </a>`
+  );
+}
+
+// ===== FEEDBACK =====
+function openFeedback() {
+  document.getElementById('feedbackMessage').value = '';
+  const errEl = document.getElementById('feedbackError');
+  errEl.classList.add('hidden');
+  errEl.textContent = '';
+  document.getElementById('feedbackModal').classList.remove('hidden');
+  document.body.style.overflow = 'hidden';
+  setTimeout(() => document.getElementById('feedbackMessage').focus(), 100);
+}
+
+function closeFeedback() {
+  document.getElementById('feedbackModal').classList.add('hidden');
+  document.body.style.overflow = '';
+}
+
+async function sendFeedback() {
+  const message = document.getElementById('feedbackMessage').value.trim();
+  const errEl   = document.getElementById('feedbackError');
+  errEl.classList.add('hidden');
+
+  if (!message) {
+    errEl.textContent = 'Please enter a message before submitting.';
+    errEl.classList.remove('hidden');
+    return;
+  }
+
+  const btn  = document.getElementById('feedbackSubmitBtn');
+  const orig = btn.innerHTML;
+  btn.disabled = true;
+  btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Sending…';
+
+  try {
+    const res  = await fetch('/api/feedback', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ message })
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      errEl.textContent = data.error || 'Failed to send feedback.';
+      errEl.classList.remove('hidden');
+      return;
+    }
+    btn.innerHTML = '<i class="fa-solid fa-check"></i> Feedback sent! Thank you.';
+    btn.style.background = 'var(--success)';
+    setTimeout(() => {
+      closeFeedback();
+      btn.style.background = '';
+      btn.innerHTML = orig;
+      btn.disabled = false;
+    }, 1800);
+    return;
+  } catch {
+    errEl.textContent = 'Network error. Please try again.';
+    errEl.classList.remove('hidden');
+  }
+  btn.disabled = false;
+  btn.innerHTML = orig;
+}
+
+// ===== DOWNLOAD CODE =====
+function downloadCode() {
+  const code = document.getElementById('htmlEditor').value;
+  if (!code.trim()) { alert('The editor is empty — nothing to download.'); return; }
+  const name = (document.getElementById('siteName').value.trim() || 'my-site')
+    .toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '') || 'my-site';
+  const blob = new Blob([code], { type: 'text/html' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href = url; a.download = `${name}.html`;
+  document.body.appendChild(a); a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+// ===== EDIT SITE =====
+async function editSite(siteId) {
+  try {
+    const res  = await fetch(`/api/sites/${siteId}/html`, { headers: { Authorization: `Bearer ${token}` } });
+    const data = await res.json();
+    if (!res.ok) { alert(data.error || 'Failed to load site.'); return; }
+
+    const site = data.site;
+    editTargetId = siteId;
+
+    // Load into editor
+    document.getElementById('siteName').value   = site.name;
+    document.getElementById('htmlEditor').value = site.html_content;
+    document.getElementById('customAlias').value = site.custom_alias || '';
+    updatePreview();
+    clearAliasStatus();
+
+    // Switch to publish tab and set edit mode UI
+    switchTab('publish', document.querySelector('.tab-btn'));
+    document.getElementById('publishBtnLabel').textContent = 'Update Site';
+    document.getElementById('publishBtn').style.background = 'linear-gradient(135deg, var(--success) 0%, #16a34a 100%)';
+    document.getElementById('cancelEditBtn').classList.remove('hidden');
+
+    // Show edit mode notice
+    showError('publishError', `✏️ Editing: "${escapeHtml(site.name)}" — make your changes and click Update Site.`);
+    document.getElementById('publishError').style.background = 'rgba(124,111,255,0.08)';
+    document.getElementById('publishError').style.borderColor = 'rgba(124,111,255,0.3)';
+    document.getElementById('publishError').style.color = 'var(--primary-soft)';
+  } catch { alert('Network error. Please try again.'); }
+}
+
+function cancelEdit() {
+  editTargetId = null;
+  document.getElementById('publishBtnLabel').textContent = 'Publish Site';
+  document.getElementById('publishBtn').style.background = '';
+  document.getElementById('cancelEditBtn').classList.add('hidden');
+  document.getElementById('htmlEditor').value = '';
+  document.getElementById('siteName').value   = '';
+  document.getElementById('customAlias').value = '';
+  clearAliasStatus();
+  clearErrors();
+  setPreviewContent('');
+}
+
+// ===== ALIAS CHECK =====
+function clearAliasStatus() {
+  aliasTaken = false;
+  document.getElementById('aliasStatus').innerHTML = '';
+  document.getElementById('aliasStatus').className = 'alias-status';
+}
+
+function checkAliasDebounced() {
+  clearTimeout(aliasTimer);
+  const val = document.getElementById('customAlias').value.trim();
+  if (!val) { clearAliasStatus(); return; }
+  aliasTimer = setTimeout(() => checkAlias(val), 500);
+}
+
+async function checkAlias(val) {
+  const statusEl = document.getElementById('aliasStatus');
+  statusEl.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
+  statusEl.className = 'alias-status checking';
+  try {
+    const res  = await fetch(`/api/sites/check-alias?alias=${encodeURIComponent(val)}`, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    const data = await res.json();
+    if (data.error && !data.available) {
+      aliasTaken = true;
+      statusEl.innerHTML = `<i class="fa-solid fa-circle-xmark"></i> ${data.error}`;
+      statusEl.className = 'alias-status taken';
+    } else if (data.available) {
+      aliasTaken = false;
+      statusEl.innerHTML = '<i class="fa-solid fa-circle-check"></i> Available ✓';
+      statusEl.className = 'alias-status available';
+    } else {
+      aliasTaken = true;
+      statusEl.innerHTML = '<i class="fa-solid fa-circle-xmark"></i> This name is already taken ❌';
+      statusEl.className = 'alias-status taken';
+    }
+  } catch {
+    aliasTaken = false;
+    clearAliasStatus();
+  }
+}
+
 // ===== PUBLISH =====
 async function publishSite() {
   clearErrors();
+
+  // Block if alias is taken
+  if (aliasTaken) {
+    showError('publishError', 'Please choose a different alias — the current one is already taken.');
+    return;
+  }
+
   const name        = document.getElementById('siteName').value.trim();
   const htmlContent = currentMode === 'editor'
     ? document.getElementById('htmlEditor').value.trim()
     : uploadedFileContent;
+  const customAlias = document.getElementById('customAlias').value.trim();
 
   if (!name)        { showError('publishError', 'Please enter a website name.'); return; }
   if (!htmlContent) { showError('publishError', 'Please add some HTML content.'); return; }
+
+  // If in edit mode, update instead of create
+  if (editTargetId) {
+    await doUpdateSite(name, htmlContent);
+    return;
+  }
 
   const btn = document.getElementById('publishBtn');
   btn.disabled = true;
@@ -414,12 +654,20 @@ async function publishSite() {
     const res  = await fetch('/api/sites', {
       method:'POST',
       headers:{ 'Content-Type':'application/json', Authorization:`Bearer ${token}` },
-      body:JSON.stringify({ name, html_content: htmlContent })
+      body:JSON.stringify({ name, html_content: htmlContent, custom_alias: customAlias || null })
     });
     const data = await res.json();
 
     if (res.status === 429 && data.error === 'limit_reached') {
       showLimitReached(data.message);
+      return;
+    }
+    if (res.status === 409 && data.error === 'alias_taken') {
+      aliasTaken = true;
+      const statusEl = document.getElementById('aliasStatus');
+      statusEl.innerHTML = '<i class="fa-solid fa-circle-xmark"></i> This name is already taken ❌';
+      statusEl.className = 'alias-status taken';
+      showError('publishError', data.message || 'That alias is already taken.');
       return;
     }
     if (!res.ok) { showError('publishError', data.error || 'Failed to publish site.'); return; }
@@ -428,15 +676,42 @@ async function publishSite() {
     const shortUrl = data.short_url || longUrl;
     showSuccessModal(shortUrl, longUrl);
     loadSites();
-    document.getElementById('htmlEditor').value = '';
-    document.getElementById('siteName').value   = '';
+    document.getElementById('htmlEditor').value  = '';
+    document.getElementById('siteName').value    = '';
+    document.getElementById('customAlias').value = '';
+    clearAliasStatus();
     uploadedFileContent = null;
     setPreviewContent('');
     clearFile();
   } catch { showError('publishError', 'Network error. Please try again.'); }
   finally {
     btn.disabled = false;
-    btn.innerHTML = '<i class="fa-solid fa-rocket"></i> <span>Publish Site</span>';
+    btn.innerHTML = '<i class="fa-solid fa-rocket"></i> <span id="publishBtnLabel">Publish Site</span>';
+  }
+}
+
+async function doUpdateSite(name, htmlContent) {
+  const btn = document.getElementById('publishBtn');
+  btn.disabled = true;
+  btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Updating…';
+
+  try {
+    const res  = await fetch(`/api/sites/${editTargetId}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ name, html_content: htmlContent })
+    });
+    const data = await res.json();
+    if (!res.ok) { showError('publishError', data.error || 'Failed to update site.'); return; }
+
+    const longUrl = data.long_url || `${window.location.origin}/site/${data.site.slug}`;
+    showSuccessModal(longUrl, longUrl);
+    loadSites();
+    cancelEdit();
+  } catch { showError('publishError', 'Network error. Please try again.'); }
+  finally {
+    btn.disabled = false;
+    btn.innerHTML = '<i class="fa-solid fa-rocket"></i> <span id="publishBtnLabel">Update Site</span>';
   }
 }
 
@@ -453,33 +728,26 @@ function showLimitReached(msg) {
 }
 
 function showSuccessModal(shortUrl, longUrl) {
-  // Short link input
   const input = document.getElementById('shortLinkInput');
   input.value = shortUrl;
 
-  // Original link
   const origLink = document.getElementById('publishedLink');
   origLink.textContent = longUrl;
   origLink.href        = longUrl;
 
-  // Visit button targets the long URL (always resolves)
   document.getElementById('visitBtn').href = longUrl;
 
-  // Reset copy button
-  document.getElementById('copyIcon').className  = 'fa-solid fa-copy';
+  document.getElementById('copyIcon').className    = 'fa-solid fa-copy';
   document.getElementById('copyLabel').textContent = 'Copy Link';
   document.getElementById('copyBtn').classList.remove('copied');
 
+  // Show as persistent fixed banner (no body overflow lock)
   document.getElementById('successModal').classList.remove('hidden');
-  document.body.style.overflow = 'hidden';
-
-  // Auto-select the short link field for quick manual copy
   setTimeout(() => input.select(), 200);
 }
 
 function closeSuccess() {
   document.getElementById('successModal').classList.add('hidden');
-  document.body.style.overflow = '';
 }
 
 async function copyLink() {
@@ -547,6 +815,7 @@ function renderSites() {
       <div class="site-card-actions">
         <button class="btn btn-outline btn-sm" onclick="copyToClipboard('${host}/site/${site.slug}',this)"><i class="fa-solid fa-copy"></i> Copy</button>
         <a href="${host}/site/${site.slug}" target="_blank" class="btn btn-ghost btn-sm"><i class="fa-solid fa-arrow-up-right-from-square"></i> Visit</a>
+        <button class="btn btn-sm" style="background:rgba(124,111,255,0.1);color:var(--primary-soft);border:1px solid rgba(124,111,255,0.25)" onclick="editSite(${site.id})"><i class="fa-solid fa-pen"></i> Edit</button>
         <button class="btn btn-sm" style="background:var(--danger-tint);color:var(--danger);border:1px solid rgba(240,68,68,0.3)" onclick="openDelete(${site.id})"><i class="fa-solid fa-trash"></i> Delete</button>
       </div>
     </div>`)
@@ -609,17 +878,20 @@ function escapeHtml(s) {
   return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
-// Close modals on overlay click
+// Close modals on overlay click (success banner is NOT a modal overlay — skip it)
 document.addEventListener('click', (e) => {
-  if (e.target.id === 'authModal')    closeAuth();
-  if (e.target.id === 'successModal') closeSuccess();
-  if (e.target.id === 'deleteModal')  closeDelete();
+  if (e.target.id === 'authModal')     closeAuth();
+  if (e.target.id === 'deleteModal')   closeDelete();
+  if (e.target.id === 'feedbackModal') closeFeedback();
 });
 
 // Escape key
 document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape') {
-    closeAuth(); closeSuccess(); closeDelete();
+    closeAuth();
+    closeDelete();
+    closeFeedback();
+    closeMenu();
     document.getElementById('nameModal').classList.add('hidden');
     document.body.style.overflow = '';
   }

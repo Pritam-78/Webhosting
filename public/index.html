@@ -23,9 +23,70 @@
     </div>
     <div class="nav-user hidden" id="navUser">
       <span class="nav-email" id="navEmail"></span>
+      <button class="hamburger-btn" id="hamburgerBtn" onclick="toggleMenu()" aria-label="Open menu">
+        <span></span><span></span><span></span>
+      </button>
       <button class="btn btn-ghost btn-sm" onclick="logout()"><i class="fa-solid fa-right-from-bracket"></i> Logout</button>
     </div>
   </nav>
+
+  <!-- SIDE MENU OVERLAY -->
+  <div class="menu-overlay hidden" id="menuOverlay" onclick="closeMenu()"></div>
+
+  <!-- SLIDE-OUT MENU -->
+  <aside class="side-menu" id="sideMenu" aria-hidden="true">
+    <div class="side-menu-header">
+      <div class="side-menu-logo"><i class="fa-solid fa-code"></i> HTMLhost</div>
+      <button class="side-menu-close" onclick="closeMenu()" aria-label="Close menu">
+        <i class="fa-solid fa-xmark"></i>
+      </button>
+    </div>
+
+    <!-- Announcements Section -->
+    <div class="side-menu-section">
+      <div class="side-menu-section-title">
+        <i class="fa-solid fa-bullhorn"></i> System Announcements
+      </div>
+      <div id="menuAnnouncements">
+        <div class="menu-ann-empty"><i class="fa-solid fa-circle-info"></i> No announcements right now.</div>
+      </div>
+    </div>
+
+    <!-- Feedback Section -->
+    <div class="side-menu-section">
+      <div class="side-menu-section-title">
+        <i class="fa-solid fa-comment-dots"></i> Feedback
+      </div>
+      <p class="side-menu-desc">Have a suggestion or found a bug? Let us know.</p>
+      <button class="btn btn-outline" style="width:100%" onclick="openFeedback(); closeMenu()">
+        <i class="fa-solid fa-paper-plane"></i> Send Feedback
+      </button>
+    </div>
+  </aside>
+
+  <!-- FEEDBACK MODAL -->
+  <div class="modal-overlay hidden" id="feedbackModal">
+    <div class="modal feedback-modal">
+      <button class="modal-close" onclick="closeFeedback()"><i class="fa-solid fa-xmark"></i></button>
+      <div class="modal-header">
+        <div class="modal-logo" style="background:rgba(34,197,94,0.12);border-color:rgba(34,197,94,0.25);color:var(--success)">
+          <i class="fa-solid fa-comment-dots"></i>
+        </div>
+        <h2>Send Feedback</h2>
+        <p>Your thoughts help us improve HTMLhost.</p>
+      </div>
+      <div class="form-group">
+        <label>Your Message</label>
+        <textarea id="feedbackMessage" class="feedback-textarea" placeholder="Describe your suggestion, issue, or idea…" rows="5"></textarea>
+      </div>
+      <div class="form-error hidden" id="feedbackError"></div>
+      <div class="form-actions" style="margin-top:16px">
+        <button class="btn btn-primary" id="feedbackSubmitBtn" onclick="sendFeedback()" style="width:100%">
+          <i class="fa-solid fa-paper-plane"></i> Submit Feedback
+        </button>
+      </div>
+    </div>
+  </div>
 
   <!-- HERO SECTION (shown when logged out) -->
   <section class="hero" id="heroSection">
@@ -196,12 +257,23 @@
           </div>
         </div>
 
+        <div class="form-group">
+          <label>Custom Short Link Alias <span class="label-optional">Optional</span></label>
+          <div class="alias-row">
+            <div class="alias-prefix">tinyurl.com/</div>
+            <input type="text" id="customAlias" class="alias-input" placeholder="my-portfolio" autocomplete="off" oninput="checkAliasDebounced()" />
+            <div class="alias-status" id="aliasStatus"></div>
+          </div>
+          <div class="alias-hint">Leave blank for a random short link. Use letters, numbers, hyphens (3–50 chars).</div>
+        </div>
+
         <!-- Paste Mode -->
         <div id="editorMode">
           <div class="editor-wrap">
             <div class="editor-toolbar">
               <span class="editor-label"><i class="fa-solid fa-code"></i> HTML Editor</span>
               <div class="editor-actions">
+                <button class="icon-btn" onclick="downloadCode()"><i class="fa-solid fa-download"></i> Download</button>
                 <button class="icon-btn" onclick="insertTemplate()"><i class="fa-solid fa-wand-magic-sparkles"></i> Template</button>
                 <button class="icon-btn danger" onclick="clearEditor()"><i class="fa-solid fa-trash"></i> Clear</button>
               </div>
@@ -248,7 +320,10 @@
           <div class="publish-error hidden" id="publishError"></div>
           <button class="btn btn-publish" id="publishBtn" onclick="publishSite()">
             <i class="fa-solid fa-rocket"></i>
-            <span>Publish Site</span>
+            <span id="publishBtnLabel">Publish Site</span>
+          </button>
+          <button class="btn btn-ghost btn-sm hidden" id="cancelEditBtn" onclick="cancelEdit()" style="margin-top:8px">
+            <i class="fa-solid fa-xmark"></i> Cancel Edit
           </button>
         </div>
       </div>
@@ -270,52 +345,41 @@
     </div>
   </main>
 
-  <!-- SUCCESS MODAL -->
-  <div class="modal-overlay hidden" id="successModal">
-    <div class="modal success-modal">
+  <!-- SUCCESS BANNER (persistent, manual close only) -->
+  <div class="success-banner hidden" id="successModal">
+    <button class="success-banner-close" onclick="closeSuccess()" aria-label="Close">
+      <i class="fa-solid fa-xmark"></i>
+    </button>
 
-      <!-- Animated check icon -->
-      <div class="success-icon-wrap">
+    <div class="success-banner-top">
+      <div class="success-banner-icon">
         <div class="success-ring"></div>
-        <div class="success-icon"><i class="fa-solid fa-circle-check"></i></div>
+        <i class="fa-solid fa-circle-check"></i>
       </div>
-
-      <!-- Header -->
-      <div class="success-header">
-        <h2>Your short link generated</h2>
-        <p>Your site is live — share your TinyURL anywhere.</p>
+      <div>
+        <div class="success-banner-title">Your short link generated</div>
+        <div class="success-banner-sub">Site is live — share it anywhere</div>
       </div>
+    </div>
 
-      <!-- Short link box -->
-      <div class="short-link-block">
-        <label class="short-link-label">
-          <i class="fa-solid fa-link"></i> Short Link (TinyURL)
-        </label>
-        <div class="short-link-row">
-          <input type="text" id="shortLinkInput" class="short-link-input" readonly />
-          <button class="copy-btn" id="copyBtn" onclick="copyLink()">
-            <i class="fa-solid fa-copy" id="copyIcon"></i>
-            <span id="copyLabel">Copy Link</span>
-          </button>
-        </div>
-      </div>
-
-      <!-- Original link toggle -->
-      <div class="original-link-row">
-        <span class="original-link-label">Original URL:</span>
-        <a href="#" id="publishedLink" target="_blank" class="published-link"></a>
-      </div>
-
-      <!-- Actions -->
-      <div class="success-actions">
-        <a href="#" id="visitBtn" target="_blank" class="btn btn-primary">
-          <i class="fa-solid fa-arrow-up-right-from-square"></i> Visit Site
-        </a>
-        <button class="btn btn-ghost" onclick="closeSuccess()">
-          <i class="fa-solid fa-xmark"></i> Done
+    <div class="short-link-block">
+      <label class="short-link-label">
+        <i class="fa-solid fa-link"></i> Short Link (TinyURL)
+      </label>
+      <div class="short-link-row">
+        <input type="text" id="shortLinkInput" class="short-link-input" readonly />
+        <button class="copy-btn" id="copyBtn" onclick="copyLink()">
+          <i class="fa-solid fa-copy" id="copyIcon"></i>
+          <span id="copyLabel">Copy Link</span>
         </button>
       </div>
+    </div>
 
+    <div class="success-banner-actions">
+      <a href="#" id="visitBtn" target="_blank" class="btn btn-primary btn-sm">
+        <i class="fa-solid fa-arrow-up-right-from-square"></i> Visit Site
+      </a>
+      <a href="#" id="publishedLink" target="_blank" class="success-orig-link"></a>
     </div>
   </div>
 
