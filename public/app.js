@@ -348,8 +348,9 @@ async function publishSite() {
     }
     if (!res.ok) { showError('publishError', data.error || 'Failed to publish site.'); return; }
 
-    const url = `${window.location.origin}/site/${data.site.slug}`;
-    showSuccessModal(url);
+    const longUrl  = data.long_url  || `${window.location.origin}/site/${data.site.slug}`;
+    const shortUrl = data.short_url || longUrl;
+    showSuccessModal(shortUrl, longUrl);
     loadSites();
     document.getElementById('htmlEditor').value = '';
     document.getElementById('siteName').value   = '';
@@ -375,14 +376,29 @@ function showLimitReached(msg) {
   el.classList.remove('hidden');
 }
 
-function showSuccessModal(url) {
-  document.getElementById('publishedLink').textContent = url;
-  document.getElementById('publishedLink').href        = url;
-  document.getElementById('visitBtn').href             = url;
-  document.getElementById('copyBtn').innerHTML         = '<i class="fa-solid fa-copy"></i> Copy';
+function showSuccessModal(shortUrl, longUrl) {
+  // Short link input
+  const input = document.getElementById('shortLinkInput');
+  input.value = shortUrl;
+
+  // Original link
+  const origLink = document.getElementById('publishedLink');
+  origLink.textContent = longUrl;
+  origLink.href        = longUrl;
+
+  // Visit button targets the long URL (always resolves)
+  document.getElementById('visitBtn').href = longUrl;
+
+  // Reset copy button
+  document.getElementById('copyIcon').className  = 'fa-solid fa-copy';
+  document.getElementById('copyLabel').textContent = 'Copy Link';
   document.getElementById('copyBtn').classList.remove('copied');
+
   document.getElementById('successModal').classList.remove('hidden');
   document.body.style.overflow = 'hidden';
+
+  // Auto-select the short link field for quick manual copy
+  setTimeout(() => input.select(), 200);
 }
 
 function closeSuccess() {
@@ -391,13 +407,20 @@ function closeSuccess() {
 }
 
 async function copyLink() {
-  const url = document.getElementById('publishedLink').textContent;
+  const url = document.getElementById('shortLinkInput').value;
   try {
     await navigator.clipboard.writeText(url);
-    const btn = document.getElementById('copyBtn');
-    btn.innerHTML = '<i class="fa-solid fa-check"></i> Copied!';
+    const btn   = document.getElementById('copyBtn');
+    const icon  = document.getElementById('copyIcon');
+    const label = document.getElementById('copyLabel');
+    icon.className    = 'fa-solid fa-check';
+    label.textContent = 'Copied! ✅';
     btn.classList.add('copied');
-    setTimeout(() => { btn.innerHTML = '<i class="fa-solid fa-copy"></i> Copy'; btn.classList.remove('copied'); }, 2500);
+    setTimeout(() => {
+      icon.className    = 'fa-solid fa-copy';
+      label.textContent = 'Copy Link';
+      btn.classList.remove('copied');
+    }, 2500);
   } catch { alert('Link: ' + url); }
 }
 

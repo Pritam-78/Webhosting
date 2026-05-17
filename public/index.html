@@ -270,21 +270,49 @@
   <!-- SUCCESS MODAL -->
   <div class="modal-overlay hidden" id="successModal">
     <div class="modal success-modal">
-      <div class="success-icon"><i class="fa-solid fa-circle-check"></i></div>
-      <h2>Site Published!</h2>
-      <p>Your website is now live and accessible at:</p>
-      <div class="link-box">
-        <a href="#" id="publishedLink" target="_blank" class="published-link"></a>
-        <button class="copy-btn" id="copyBtn" onclick="copyLink()">
-          <i class="fa-solid fa-copy"></i> Copy
-        </button>
+
+      <!-- Animated check icon -->
+      <div class="success-icon-wrap">
+        <div class="success-ring"></div>
+        <div class="success-icon"><i class="fa-solid fa-circle-check"></i></div>
       </div>
+
+      <!-- Header -->
+      <div class="success-header">
+        <h2>Your short link generated</h2>
+        <p>Your site is live — share your TinyURL anywhere.</p>
+      </div>
+
+      <!-- Short link box -->
+      <div class="short-link-block">
+        <label class="short-link-label">
+          <i class="fa-solid fa-link"></i> Short Link (TinyURL)
+        </label>
+        <div class="short-link-row">
+          <input type="text" id="shortLinkInput" class="short-link-input" readonly />
+          <button class="copy-btn" id="copyBtn" onclick="copyLink()">
+            <i class="fa-solid fa-copy" id="copyIcon"></i>
+            <span id="copyLabel">Copy Link</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Original link toggle -->
+      <div class="original-link-row">
+        <span class="original-link-label">Original URL:</span>
+        <a href="#" id="publishedLink" target="_blank" class="published-link"></a>
+      </div>
+
+      <!-- Actions -->
       <div class="success-actions">
         <a href="#" id="visitBtn" target="_blank" class="btn btn-primary">
           <i class="fa-solid fa-arrow-up-right-from-square"></i> Visit Site
         </a>
-        <button class="btn btn-outline" onclick="closeSuccess()">Done</button>
+        <button class="btn btn-ghost" onclick="closeSuccess()">
+          <i class="fa-solid fa-xmark"></i> Done
+        </button>
       </div>
+
     </div>
   </div>
 

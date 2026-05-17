@@ -5,6 +5,7 @@ const { v4: uuidv4 } = require('uuid');
 const multer  = require('multer');
 const { Pool } = require('pg');
 const path    = require('path');
+const https   = require('https');
 
 const app  = express();
 const PORT = 5000;
@@ -32,6 +33,26 @@ function getClientIP(req) {
 
 function generateSlug() {
   return uuidv4().replace(/-/g, '').substring(0, 10);
+}
+
+async function shortenURL(longUrl) {
+  return new Promise((resolve) => {
+    const encoded = encodeURIComponent(longUrl);
+    const req = https.get(
+      `https://tinyurl.com/api-create.php?url=${encoded}`,
+      { timeout: 5000 },
+      (res) => {
+        let data = '';
+        res.on('data', chunk => { data += chunk; });
+        res.on('end', () => {
+          const short = data.trim();
+          resolve(short.startsWith('http') ? short : longUrl);
+        });
+      }
+    );
+    req.on('error',   () => resolve(longUrl));
+    req.on('timeout', () => { req.destroy(); resolve(longUrl); });
+  });
 }
 
 // ─── IP Ban Middleware ─────────────────────────────────────────────────────────
@@ -234,7 +255,10 @@ app.post('/api/sites', authMiddleware, async (req, res) => {
       'INSERT INTO sites (user_id, name, slug, html_content) VALUES ($1,$2,$3,$4) RETURNING *',
       [req.user.id, name.trim(), slug, html_content]
     );
-    res.json({ site: result.rows[0] });
+    const site    = result.rows[0];
+    const longUrl = `${req.protocol}://${req.get('host')}/site/${site.slug}`;
+    const shortUrl = await shortenURL(longUrl);
+    res.json({ site, short_url: shortUrl, long_url: longUrl });
   } catch (err) {
     console.error('Create site error:', err.message);
     res.status(500).json({ error: 'Server error' });
@@ -254,7 +278,10 @@ app.post('/api/sites/upload', authMiddleware, upload.single('file'), async (req,
       'INSERT INTO sites (user_id, name, slug, html_content) VALUES ($1,$2,$3,$4) RETURNING *',
       [req.user.id, name.trim(), slug, html_content]
     );
-    res.json({ site: result.rows[0] });
+    const site    = result.rows[0];
+    const longUrl = `${req.protocol}://${req.get('host')}/site/${site.slug}`;
+    const shortUrl = await shortenURL(longUrl);
+    res.json({ site, short_url: shortUrl, long_url: longUrl });
   } catch (err) {
     console.error('Upload error:', err.message);
     res.status(500).json({ error: 'Server error' });
