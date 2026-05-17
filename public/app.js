@@ -157,10 +157,86 @@ function showDashboard() {
   loadSites();
   updatePreview();
   loadAnnouncement();
+  loadNotifications();
 }
 
 function openPublisher() {
   switchTab('publish', document.querySelectorAll('.tab-btn')[0]);
+}
+
+// ===== USER NOTIFICATIONS =====
+async function loadNotifications() {
+  try {
+    const res  = await fetch('/api/notifications', {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    const data = await res.json();
+    renderNotifications(data.notifications || []);
+  } catch {
+    document.getElementById('notificationsStack').innerHTML = '';
+  }
+}
+
+function renderNotifications(notifications) {
+  const stack = document.getElementById('notificationsStack');
+  if (!notifications.length) { stack.innerHTML = ''; return; }
+
+  stack.innerHTML = notifications.map(n => `
+    <div class="user-notif-card" id="notif-${n.id}" role="alert">
+      <div class="user-notif-glow"></div>
+      <div class="user-notif-icon">
+        <i class="fa-solid fa-bell"></i>
+      </div>
+      <div class="user-notif-body">
+        <div class="user-notif-label">
+          <span class="user-notif-badge">Admin Message</span>
+          <span class="user-notif-time">${formatTimeAgo(n.created_at)}</span>
+        </div>
+        <p class="user-notif-message">${escapeHtml(n.message)}</p>
+        ${n.action_link ? `
+          <a href="${escapeHtml(n.action_link)}" target="_blank" rel="noopener" class="user-notif-action-btn">
+            <i class="fa-solid fa-arrow-up-right-from-square"></i> Open Link
+          </a>` : ''}
+      </div>
+      <button class="user-notif-dismiss" onclick="dismissNotification(${n.id})" aria-label="Mark as read">
+        <i class="fa-solid fa-check"></i>
+        <span>Mark read</span>
+      </button>
+    </div>
+  `).join('');
+}
+
+async function dismissNotification(id) {
+  const card = document.getElementById(`notif-${id}`);
+  if (!card) return;
+
+  // Optimistic animation
+  card.classList.add('notif-dismissing');
+
+  try {
+    await fetch(`/api/notifications/${id}/read`, {
+      method: 'PUT',
+      headers: { Authorization: `Bearer ${token}` }
+    });
+  } catch { /* silent — card already visually gone */ }
+
+  setTimeout(() => {
+    card.remove();
+    // If stack is empty, clear it
+    const stack = document.getElementById('notificationsStack');
+    if (!stack.children.length) stack.innerHTML = '';
+  }, 380);
+}
+
+function formatTimeAgo(dateStr) {
+  const diff = Date.now() - new Date(dateStr).getTime();
+  const mins  = Math.floor(diff / 60000);
+  const hours = Math.floor(diff / 3600000);
+  const days  = Math.floor(diff / 86400000);
+  if (mins  < 1)  return 'just now';
+  if (mins  < 60) return `${mins}m ago`;
+  if (hours < 24) return `${hours}h ago`;
+  return `${days}d ago`;
 }
 
 // ===== ANNOUNCEMENT BANNER =====

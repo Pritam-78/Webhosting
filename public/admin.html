@@ -193,6 +193,79 @@
       <button class="ap-tab" onclick="switchAdminTab('security',this)">
         <span class="tab-dot"></span> IP Security
       </button>
+      <button class="ap-tab" onclick="switchAdminTab('notifications',this)">
+        <span class="tab-dot"></span> Notifications
+      </button>
+    </div>
+
+    <!-- ── Notifications Panel ────────────────────────────────────────────── -->
+    <div class="ap-panel" id="panelNotifications">
+
+      <!-- Send form -->
+      <div class="form-panel">
+        <div class="form-panel-title">
+          <i class="fa-solid fa-paper-plane"></i>
+          Send Targeted Notification
+        </div>
+
+        <div class="form-row">
+          <div class="form-group" style="margin-bottom:0">
+            <label>Target User Email</label>
+            <div class="input-wrap">
+              <i class="fa-solid fa-at"></i>
+              <input type="email" id="notifEmail" placeholder="user@example.com" />
+            </div>
+          </div>
+          <div class="form-group" style="margin-bottom:0">
+            <label>Tool / Web Link <span style="color:var(--text3);font-weight:400">(optional)</span></label>
+            <div class="input-wrap">
+              <i class="fa-solid fa-link"></i>
+              <input type="url" id="notifLink" placeholder="https://example.com/tool" />
+            </div>
+          </div>
+        </div>
+
+        <div class="form-group" style="margin-top:14px;margin-bottom:0">
+          <label>Message</label>
+          <textarea id="notifMessage" class="form-textarea" rows="3"
+            placeholder="Write the notification message for this user…"></textarea>
+        </div>
+
+        <div class="form-error hidden" id="notifFormError"></div>
+        <div class="form-actions" style="margin-top:16px">
+          <button class="btn btn-primary" onclick="sendNotification()">
+            <i class="fa-solid fa-paper-plane"></i> Send Notification
+          </button>
+        </div>
+      </div>
+
+      <!-- All sent notifications -->
+      <div class="admin-section">
+        <div class="section-header">
+          <h3><i class="fa-solid fa-bell"></i> Sent Notifications</h3>
+          <button class="btn btn-outline btn-sm" onclick="loadAdminNotifications()">
+            <i class="fa-solid fa-rotate-right"></i> Refresh
+          </button>
+        </div>
+        <div class="users-table-wrap">
+          <table class="users-table">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Target Email</th>
+                <th>Message</th>
+                <th>Link</th>
+                <th>Status</th>
+                <th>Sent</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody id="notifTableBody">
+              <tr><td colspan="7" class="loading-row"><i class="fa-solid fa-spinner fa-spin"></i> Loading…</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
     </div>
 
     <!-- ── Overview Panel ─────────────────────────────────────────────────── -->
@@ -378,6 +451,7 @@ async function adminLogin(e) {
       loadAnnouncements();
       loadBannedIPs();
       loadActivity();
+      loadAdminNotifications();
     } else {
       showErr('adminLoginError', '⛔ Access Denied. Incorrect password.');
       document.getElementById('adminPass').value = '';
@@ -638,6 +712,110 @@ function renderActivity(list) {
       <td class="date-cell">${formatDate(a.created_at)}</td>
       <td>${a.ip_address ? `<button class="btn btn-xs" style="background:var(--danger-tint);color:var(--danger);border:1px solid rgba(240,68,68,0.3)" onclick="quickBanIP('${escH(a.ip_address)}','${escH(a.email||'')}')"><i class="fa-solid fa-ban"></i></button>` : '—'}</td>
     </tr>`).join('');
+}
+
+/* ── Targeted Notifications ── */
+async function sendNotification() {
+  hideErr('notifFormError');
+  const email   = document.getElementById('notifEmail').value.trim();
+  const message = document.getElementById('notifMessage').value.trim();
+  const link    = document.getElementById('notifLink').value.trim();
+
+  if (!email || !message) {
+    showErr('notifFormError', 'Target email and message are required.');
+    return;
+  }
+
+  const btn = document.querySelector('#panelNotifications .form-actions .btn');
+  const orig = btn.innerHTML;
+  btn.disabled = true;
+  btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Sending…';
+
+  try {
+    const res  = await fetch('/api/admin/notifications', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${adminToken}` },
+      body: JSON.stringify({ target_email: email, message, action_link: link || null })
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      showErr('notifFormError', data.error || 'Failed to send notification.');
+      return;
+    }
+    // Clear form
+    document.getElementById('notifEmail').value   = '';
+    document.getElementById('notifMessage').value = '';
+    document.getElementById('notifLink').value    = '';
+    loadAdminNotifications();
+
+    // Flash success
+    btn.innerHTML = '<i class="fa-solid fa-check"></i> Sent!';
+    btn.style.background = 'var(--success)';
+    setTimeout(() => { btn.innerHTML = orig; btn.style.background = ''; btn.disabled = false; }, 2000);
+    return;
+  } catch { showErr('notifFormError', 'Network error. Please try again.'); }
+  btn.disabled = false;
+  btn.innerHTML = orig;
+}
+
+async function loadAdminNotifications() {
+  try {
+    const res  = await fetch('/api/admin/notifications', {
+      headers: { Authorization: `Bearer ${adminToken}` }
+    });
+    const data = await res.json();
+    renderAdminNotifications(data.notifications || []);
+  } catch {
+    document.getElementById('notifTableBody').innerHTML =
+      '<tr><td colspan="7" class="empty-row">Failed to load.</td></tr>';
+  }
+}
+
+function renderAdminNotifications(list) {
+  const tbody = document.getElementById('notifTableBody');
+  if (!list.length) {
+    tbody.innerHTML = '<tr><td colspan="7" class="empty-row"><i class="fa-solid fa-bell-slash" style="opacity:0.4;margin-right:7px"></i>No notifications sent yet.</td></tr>';
+    return;
+  }
+  tbody.innerHTML = list.map((n, i) => `
+    <tr>
+      <td class="row-num">${i + 1}</td>
+      <td style="font-size:0.85rem;color:var(--text2)">${escH(n.target_email)}</td>
+      <td style="font-size:0.83rem;color:var(--text2);max-width:220px">
+        <span title="${escH(n.message)}" style="display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">${escH(n.message)}</span>
+      </td>
+      <td style="font-size:0.82rem">
+        ${n.action_link
+          ? `<a href="${escH(n.action_link)}" target="_blank" class="site-link" style="font-size:0.78rem">
+               <i class="fa-solid fa-arrow-up-right-from-square"></i> Link
+             </a>`
+          : '<span style="color:var(--text3)">—</span>'}
+      </td>
+      <td>
+        ${n.is_read
+          ? '<span style="font-size:0.75rem;color:var(--success);font-weight:600"><i class="fa-solid fa-check-circle"></i> Read</span>'
+          : '<span style="font-size:0.75rem;color:var(--warning);font-weight:600"><i class="fa-solid fa-clock"></i> Unread</span>'}
+      </td>
+      <td class="date-cell">${formatDate(n.created_at)}</td>
+      <td>
+        <button class="btn btn-xs"
+          style="background:var(--danger-tint);color:var(--danger);border:1px solid rgba(240,68,68,0.3)"
+          onclick="deleteNotification(${n.id})">
+          <i class="fa-solid fa-trash"></i>
+        </button>
+      </td>
+    </tr>`).join('');
+}
+
+async function deleteNotification(id) {
+  if (!confirm('Delete this notification? It will be removed from the user\'s dashboard.')) return;
+  try {
+    await fetch(`/api/admin/notifications/${id}`, {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${adminToken}` }
+    });
+    loadAdminNotifications();
+  } catch { alert('Failed to delete notification.'); }
 }
 </script>
 </body>

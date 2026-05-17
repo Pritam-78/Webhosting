@@ -324,6 +324,87 @@ app.delete('/api/sites/:id', authMiddleware, async (req, res) => {
   }
 });
 
+// ─── User Notification Routes ─────────────────────────────────────────────────
+
+app.get('/api/notifications', authMiddleware, async (req, res) => {
+  try {
+    const result = await pool.query(
+      `SELECT id, message, action_link, created_at
+       FROM user_notifications
+       WHERE target_email = $1 AND is_read = false
+       ORDER BY created_at DESC`,
+      [req.user.email]
+    );
+    res.json({ notifications: result.rows });
+  } catch (err) {
+    console.error('Get notifications error:', err.message);
+    res.json({ notifications: [] });
+  }
+});
+
+app.put('/api/notifications/:id/read', authMiddleware, async (req, res) => {
+  try {
+    await pool.query(
+      `UPDATE user_notifications SET is_read = true
+       WHERE id = $1 AND target_email = $2`,
+      [req.params.id, req.user.email]
+    );
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Mark read error:', err.message);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+app.get('/api/admin/notifications', adminAuth, async (req, res) => {
+  try {
+    const result = await pool.query(
+      `SELECT n.*, u.name as user_name
+       FROM user_notifications n
+       LEFT JOIN users u ON u.email = n.target_email
+       ORDER BY n.created_at DESC`
+    );
+    res.json({ notifications: result.rows });
+  } catch (err) {
+    console.error('Admin get notifs error:', err.message);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+app.post('/api/admin/notifications', adminAuth, async (req, res) => {
+  try {
+    const { target_email, message, action_link } = req.body;
+    if (!target_email || !message) {
+      return res.status(400).json({ error: 'Target email and message are required' });
+    }
+    const userCheck = await pool.query(
+      'SELECT id FROM users WHERE email = $1', [target_email.toLowerCase()]
+    );
+    if (userCheck.rows.length === 0) {
+      return res.status(404).json({ error: 'No user found with that email address' });
+    }
+    const result = await pool.query(
+      `INSERT INTO user_notifications (target_email, message, action_link)
+       VALUES ($1, $2, $3) RETURNING *`,
+      [target_email.toLowerCase(), message.trim(), action_link?.trim() || null]
+    );
+    res.json({ notification: result.rows[0] });
+  } catch (err) {
+    console.error('Create notification error:', err.message);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+app.delete('/api/admin/notifications/:id', adminAuth, async (req, res) => {
+  try {
+    await pool.query('DELETE FROM user_notifications WHERE id = $1', [req.params.id]);
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Delete notification error:', err.message);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
 // ─── Announcement Routes ───────────────────────────────────────────────────────
 
 app.get('/api/announcements/active', async (req, res) => {
